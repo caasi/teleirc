@@ -90,6 +90,12 @@ config.usernameFallbackFormat = '%firstName% %lastName%';
 // Tip: you can set this to \n if you want them as separate messages on IRC
 config.replaceNewlines = ' … ';
 
+// Send message in text, markdown or html
+config.parseMode = '';
+
+// When parseMode is markdown or html, you can emphasize nicks in Telegram
+config.emNick = false;
+
 config.ircNick = 'tgBot';
 config.ircServer = 'irc.cs.hut.fi';
 
