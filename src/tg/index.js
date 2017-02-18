@@ -63,12 +63,28 @@ var init = function(msgCallback) {
                 return;
             }
 
+            var parseMode = config.parseMode;
+            if (parseMode !== 'markdown' && parseMode !== 'html') {
+                parseMode = undefined;
+            }
+
             if (message.user) {
-                message.text = '<' + message.user + '> ' + message.text;
+                var nick = '<' + message.user + '>';
+
+                if (config.emNick) {
+                    if (parseMode === 'markdown') {
+                        nick = '<*' + message.user + '*>';
+                    }
+                    if (parseMode === 'html') {
+                        nick = '&lt;<b>' + message.user + '</b>&gt;';
+                    }
+                }
+
+                message.text = nick + ' ' + message.text;
             }
 
             logger.verbose('>> relaying to TG:', message.text);
-            tg.sendMessage(message.channel.tgChatId, message.text);
+            tg.sendMessage(message.channel.tgChatId, message.text, {parse_mode: parseMode});
         }
     };
 };
