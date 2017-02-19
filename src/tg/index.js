@@ -84,7 +84,13 @@ var init = function(msgCallback) {
             }
 
             logger.verbose('>> relaying to TG:', message.text);
-            tg.sendMessage(message.channel.tgChatId, message.text, {parse_mode: parseMode});
+            tg.sendMessage(message.channel.tgChatId, message.text, {parse_mode: parseMode})
+                .catch(function(err) {
+                    logger.error(err);
+                    // resend
+                    logger.verbose('>> fallback to plain text');
+                    return tg.sendMessage(message.channel.tgChatId, message.text);
+                });
         }
     };
 };
