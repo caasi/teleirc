@@ -468,43 +468,47 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
 };
 
 exports.fixMarkdown = function(str) {
-    var stats = {
-        '*': {
-            count: 0,
-            index: -1
-        },
-        '_': {
-            count: 0,
-            index: -1
-        },
-        '`': {
-            count: 0,
-            index: -1
-        }
-    };
+    var chars = [];
+    var idxes = [];
+    var escaped = false;
     var i;
+    var j;
     var c;
-    var r;
-    var before;
-    var after;
 
     for (i in str) {
         c = str[i];
-
-        if (stats[c]) {
-            stats[c].count++;
-            stats[c].index = i;
+        switch (c) {
+            case '\\':
+                escaped = true;
+                break;
+            case '*':
+            case '_':
+            case '`':
+                if (escaped) {
+                    escaped = false;
+                    break;
+                }
+                if (chars[chars.length - 1] === c) {
+                    chars.pop();
+                    idxes.pop();
+                } else {
+                    chars.push(c);
+                    idxes.push(i);
+                }
+                break;
+            default:
         }
     }
 
-    r = str;
-    for (c in stats) {
-        if (stats[c].count && stats[c].count % 2 !== 0) {
-            before = str.slice(0, stats[c].index);
-            after = str.slice(stats[c].index);
-            r = before + '\\' + after;
+    chars = [];
+    j = 0;
+    for (i in str) {
+        if (i === idxes[j]) {
+            chars.push('\\');
+            ++j;
         }
+        chars.push(str[i]);
     }
 
-    return r;
+    return chars.join('');
 };
