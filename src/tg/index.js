@@ -81,6 +81,10 @@ var init = function(msgCallback) {
                 }
 
                 message.text = nick + ' ' + message.text;
+
+                if (parseMode === 'markdown') {
+                    message.text = tgUtil.fixMarkdown(message.text);
+                }
             }
 
             logger.verbose('>> relaying to TG:', message.text);
