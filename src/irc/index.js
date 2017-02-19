@@ -128,7 +128,7 @@ var init = function(msgCallback) {
                 type: 'action',
                 channel: message.channel,
                 user: null,
-                text: messageText
+                text: user + ' ' + message.text
             });
         }
     });

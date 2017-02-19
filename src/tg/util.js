@@ -338,7 +338,7 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
 
         callback({
             channel: channel,
-            text: prefix + '@' + replyName + '\x03, ' + msg.text
+            text: prefix + replyName + '\x03: ' + msg.text
         });
     } else if ((msg.forward_from || msg.forward_from_chat) && msg.text) {
         var from = msg.forward_from || msg.forward_from_chat;
