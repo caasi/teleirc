@@ -69,6 +69,9 @@ config.palette = [
     'pink', 'blue'
 ];
 
+// Emphasize nick only
+config.colorless = false;
+
 // If soloUse is true, send all messages without username preview, intented
 // to use telegram as a limited IRC client.
 config.soloUse = false;
