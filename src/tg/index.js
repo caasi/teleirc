@@ -68,8 +68,12 @@ var init = function(msgCallback) {
                 parseMode = undefined;
             }
 
+            var textMessage;
             if (message.user) {
                 var nick = '<' + message.user + '>';
+
+                // save the message to fallback to plain text
+                textMessage = nick + ' ' + message.text;
 
                 if (config.emNick) {
                     if (parseMode === 'markdown') {
@@ -93,7 +97,7 @@ var init = function(msgCallback) {
                     logger.error(err);
                     // resend
                     logger.verbose('>> fallback to plain text');
-                    return tg.sendMessage(message.channel.tgChatId, message.text);
+                    return tg.sendMessage(message.channel.tgChatId, textMessage);
                 });
         }
     };
