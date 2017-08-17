@@ -70,7 +70,7 @@ var init = function(msgCallback) {
         });
     });
 
-    nodeIrc.on('message', function(event) {
+    nodeIrc.on('privmsg', function(event) {
         if (!shouldRelayEvent('message')) {
             return;
         }
