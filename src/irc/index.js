@@ -331,25 +331,31 @@ var init = function(msgCallback) {
     });
 
     return {
-        send: function(message, raw) {
-            var text = ''
+        send: function(message, multi) {
+            var text = '';
 
-            if (!raw) {
-                // strip empty lines
-                message.text = message.text.replace(/^\s*\n/gm, '');
-
-                // replace newlines
-                message.text = message.text.replace(/\n/g, config.replaceNewlines);
-
-                // simplify URLs
-                message.text = message.text.replace(/https?:\/\/\S*/g, function(match) {
-                    return ircUtil.parseUrl(match).url;
+            if (multi) {
+                logger.verbose('<< relaying to IRC w/ multiple lines:', message.text);
+                message.text.split('\n').forEach(function(msg) {
+                    nodeIrc.say(message.channel.ircChan, msg);
                 });
-
-                // TODO: replace here any remaining newlines with username
-                // (this can happen if user configured replaceNewlines to itself
-                // contain newlines)
+                return;
             }
+
+            // strip empty lines
+            message.text = message.text.replace(/^\s*\n/gm, '');
+
+            // simplify URLs
+            message.text = message.text.replace(/https?:\/\/\S*/g, function(match) {
+                return ircUtil.parseUrl(match).url;
+            });
+
+            // replace newlines
+            message.text = message.text.replace(/\n/g, config.replaceNewlines);
+
+            // TODO: replace here any remaining newlines with username
+            // (this can happen if user configured replaceNewlines to itself
+            // contain newlines)
 
             // append the message id
             if (message && message.id) {
@@ -358,7 +364,7 @@ var init = function(msgCallback) {
 
             // show a part of the reply message
             if (message && message.original && message.original.reply_to_message && message.original.reply_to_message.text) {
-                text = message.original.reply_to_message.text.replace(M.NICK_FORMAT, '')
+                text = message.original.reply_to_message.text.replace(M.NICK_FORMAT, '');
                 if( text.match(/^\s*https?:\/\//) )
                     message.text += ' <' + ircUtil.parseUrl(text.match(/https?:\/\/\S*/)[0]).url + '>'
                 else
