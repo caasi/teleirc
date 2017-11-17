@@ -81,6 +81,9 @@ var init = function(msgCallback) {
         var user = event.nick;
         var chanName = event.target;
         var text = event.message;
+        if (ircUtil.checkIgnore(user, text)) {
+            return;
+        }
 
         var message = ircUtil.parseMsg(chanName, text);
 
@@ -125,6 +128,9 @@ var init = function(msgCallback) {
         var user = event.nick;
         var chanName = event.target;
         var text = event.message;
+        if (ircUtil.checkIgnore(user, text)) {
+            return;
+        }
 
         var notice = ircUtil.parseMsg(chanName, text);
 
