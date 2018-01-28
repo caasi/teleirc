@@ -346,7 +346,7 @@ var init = function(msgCallback) {
             if (multi) {
                 logger.verbose('<< relaying to IRC w/ multiple lines:', message.text);
                 message.text.split('\n').forEach(function(msg) {
-                    nodeIrc.say(message.channel.ircChan, msg);
+                    say(message.channel.ircChan, msg);
                 });
                 return;
             }
@@ -361,10 +361,6 @@ var init = function(msgCallback) {
 
             // replace newlines
             message.text = message.text.replace(/\n/g, config.replaceNewlines);
-
-            // TODO: replace here any remaining newlines with username
-            // (this can happen if user configured replaceNewlines to itself
-            // contain newlines)
 
             // append the message id
             if (message && message.id) {
@@ -381,7 +377,16 @@ var init = function(msgCallback) {
             }
 
             logger.verbose('<< relaying to IRC:', message.text);
-            say(message.channel.ircChan, message.text.split('\n'));
+            if (config.replaceNewlines.indexOf('\n') < 0) {
+                logger.verbose('<< relaying to IRC:', message.text);
+                say(message.channel.ircChan, message.text);
+            } else {
+                var username = message.text.slice(0, message.text.indexOf('>') + 2);
+                var rest = message.text.slice(message.text.indexOf('>') + 2);
+                rest.split('\n').forEach(function(msg) {
+                    say(message.channel.ircChan, username + msg);
+                });
+            }
         },
         getNames: function(channel) {
             nodeIrc.who(channel.ircChan);
