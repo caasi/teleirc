@@ -75,7 +75,7 @@ var init = function(msgCallback) {
                 parseMode = undefined;
             }
 
-            var fallbackText = message.text || '';
+            var fallbackText = tgUtil.stripIrcCodes(message.text) || '';
             if (message.user) {
                 var nick;
 
@@ -100,7 +100,7 @@ var init = function(msgCallback) {
             logger.verbose('>> relaying to TG:', message.text);
             tg.sendMessage(
                 message.channel.tgChatId,
-                message.text,
+                tgUtil.stripIrcCodes(message.text),
                 {
                     parse_mode: parseMode,
                     reply_to_message_id: replyId
