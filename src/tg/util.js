@@ -12,6 +12,7 @@ var os = require('os');
 var child_process = require('child_process');
 var Chan = require('../channels');
 var M = require('../message');
+var mime = require('mime');
 
 if (config.uploadToImgur) {
     imgur.setClientId(config.imgurClientId);
@@ -166,7 +167,9 @@ exports.convertMedia = function(filePath, config) {
             }
         }
     }
-    return filePath;
+    return new Promise(function(resolve) {
+        resolve(filePath);
+    });
 };
 
 var fileIdPathMap = {};
@@ -184,7 +187,8 @@ var getFilePathById = function(fileId) {
     });
 };
 
-exports.serveFile = function(fileId, config, tg, callback) {
+// mimetype got ignored because we download files from Telegram
+exports.serveFile = function(fileId, mimetype, config, tg, callback) {
     var filesPath = path.join(chatIdsPath, 'files');
     mkdirp(filesPath);
 
@@ -485,14 +489,14 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
             text: prefix + 'Fwd from ' + fwdName + ': ' + msg.text
         });
     } else if (msg.audio) {
-        exports.serveFile(msg.audio.file_id, config, tg, function(url) {
+        exports.serveFile(msg.audio.file_id, msg.audio.mime_type, config, tg, function(url) {
             callback({
                 channel: channel,
                 text: prefix + '(Audio, ' + msg.audio.duration + 's)' + url
             });
         });
     } else if (msg.document) {
-        exports.serveFile(msg.document.file_id, config, tg, function(url) {
+        exports.serveFile(msg.document.file_id, msg.document.mime_type ,config, tg, function(url) {
             callback({
                 channel: channel,
                 text: prefix + '(Document) ' + url
@@ -510,13 +514,18 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
                 });
             });
         } else {
-            exports.serveFile(photo.file_id, config, tg, function(url) {
-                callback({
-                    channel: channel,
-                    text: prefix + '(Photo, ' + photo.width + 'x' + photo.height + ') ' +
-                    url + (msg.caption ? ' ' + msg.caption : '')
-                });
-            });
+            exports.serveFile(
+                photo.file_id,
+                mime.getType(path.extname(photo.file_id)) || 'image/png',
+                config, tg,
+                function(url) {
+                    callback({
+                        channel: channel,
+                        text: prefix + '(Photo, ' + photo.width + 'x' + photo.height + ') ' +
+                        url + (msg.caption ? ' ' + msg.caption : '')
+                    });
+                }
+            );
         }
     } else if (msg.new_chat_photo) {
         // pick the highest quality photo
@@ -529,16 +538,21 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
                     chatPhoto.width + 'x' + chatPhoto.height + ') ' + url
                 });});
         } else {
-            exports.serveFile(chatPhoto.file_id, config, tg, function(url) {
-                callback({
-                    channel: channel,
-                    text: prefix + '(New chat photo, ' +
-                    chatPhoto.width + 'x' + chatPhoto.height + ') ' + url
-                });
-            });
+            exports.serveFile(
+                chatPhoto.file_id,
+                mime.getType(path.extname(chatPhoto.file_id)) || 'image/png',
+                config, tg,
+                function(url) {
+                    callback({
+                        channel: channel,
+                        text: prefix + '(New chat photo, ' +
+                        chatPhoto.width + 'x' + chatPhoto.height + ') ' + url
+                    });
+                }
+            );
         }
     } else if (msg.sticker) {
-        exports.serveFile(msg.sticker.file_id, config, tg, function(url) {
+        exports.serveFile(msg.sticker.file_id, 'image/webp', config, tg, function(url) {
             callback({
                 channel: channel,
                 text: prefix + '(Sticker, ' +
@@ -546,15 +560,15 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
             });
         });
     } else if (msg.video) {
-        exports.serveFile(msg.video.file_id, config, tg, function(url) {
+        exports.serveFile(msg.video.file_id, msg.video.mime_type, config, tg, function(url) {
             callback({
                 channel: channel,
-                text: prefix + '(Video, ' + msg.video.duration + 's)' +
+                text: prefix + '(Video, ' + msg.video.duration + 's) ' +
                     url + (msg.caption ? ' ' + msg.caption : '')
             });
         });
     } else if (msg.voice) {
-        exports.serveFile(msg.voice.file_id, config, tg, function(url) {
+        exports.serveFile(msg.voice.file_id, msg.voice.mime_type, config, tg, function(url) {
             callback({
                 channel: channel,
                 text: prefix + '(Voice, ' + msg.voice.duration + 's) ' + url
