@@ -496,7 +496,7 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
             });
         });
     } else if (msg.document) {
-        exports.serveFile(msg.document.file_id, msg.document.mime_type ,config, tg, function(url) {
+        exports.serveFile(msg.document.file_id, msg.document.mime_type, config, tg, function(url) {
             callback({
                 channel: channel,
                 text: prefix + '(Document) ' + url
