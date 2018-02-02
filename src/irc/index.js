@@ -173,7 +173,7 @@ var init = function(msgCallback) {
         if (message) {
             var messageText = user + ': ' + message.text;
             if (config.emphasizeAction) {
-                messageText = '*' + messageText + '*';
+                messageText = '* ' + messageText + ' *';
             }
 
             msgCallback({
