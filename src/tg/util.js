@@ -114,7 +114,12 @@ exports.convertMedia = function(filePath, config) {
 
                 return new Promise(function(resolve, reject) {
                     var newFilePath = basename + newSuffix;
-                    var child = child_process.spawn('convert', [filePath, newFilePath]);
+                    var child
+                    if (suffix === 'webp') {
+                      child = child_process.spawn('dwebp', [filePath, '-o', newFilePath]);
+                    } else {
+                      child = child_process.spawn('convert', [filePath, newFilePath]);
+                    }
                     child.on('error', function(err) {
                         logger.error('Failed to run "convert":', err.message);
                         // fall back to the original filename
