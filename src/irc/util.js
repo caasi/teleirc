@@ -1,5 +1,6 @@
 var config = require('../config');
 var logger = require('winston');
+var M = require('../message');
 
 exports.lookupChannel = function(chanName, channels) {
     return channels.filter(function(channel) {
@@ -32,7 +33,7 @@ exports.parseMsg = function(chanName, text) {
 
     text = text.trim();
     // get reply id
-    r = text.match(/\s#(\S+)/);
+    r = text.match(M.ID_FORMAT);
 
     return {
         channel: channel,

@@ -7,9 +7,10 @@
 
 var crypto = require('crypto')
 
-// A in memory message list.
 var messages = []
 var messageMap = {}
+
+var ID_FORMAT = /\s#([a-f0-9]{4})/;
 
 function getId(msg) {
   return crypto
@@ -36,6 +37,7 @@ function get(id) {
 }
 
 module.exports = {
+  ID_FORMAT: ID_FORMAT,
   getId: getId,
   push: push,
   list: list,

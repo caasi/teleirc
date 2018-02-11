@@ -98,6 +98,10 @@ var init = function(msgCallback) {
             var r = M.get(message.replyTo);
             var replyId = (r && r.original && r.original.message_id) || undefined;
 
+            if (replyId) {
+                message.text = message.text.replace(M.ID_FORMAT, '');
+            }
+
             logger.verbose('>> relaying to TG:', message.text);
             tg.sendMessage(
                 message.channel.tgChatId,
