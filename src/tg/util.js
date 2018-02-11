@@ -10,6 +10,7 @@ var logger = require('winston');
 var imgur = require('imgur');
 var os = require('os');
 var child_process = require('child_process');
+var M = require('../message');
 
 if (config.uploadToImgur) {
     imgur.setClientId(config.imgurClientId);
@@ -77,7 +78,7 @@ exports.getName = function(user, config) {
 };
 
 exports.getIRCName = function(msg, config) {
-    var ircNickMatchRE = /^<(.*)>/;
+    var ircNickMatchRE = /^<(.*?)>/;
     var results = ircNickMatchRE.exec(msg.text);
     var name;
     if (!results) {
@@ -173,7 +174,13 @@ exports.initHttpServer = function() {
 
     require('http').createServer(function(req, res) {
         req.addListener('end', function() {
-            fileServer.serve(req, res);
+            // show messages in JSON
+            if (req.url.match(/^\/messages\/?$/)) {
+                res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+                res.end(JSON.stringify(M.list(), null, 2));
+            } else {
+                fileServer.serve(req, res);
+            }
         }).resume();
     }).listen(config.httpPort);
 };

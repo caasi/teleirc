@@ -23,16 +23,21 @@ exports.getChannels = function(arr) {
 
 exports.parseMsg = function(chanName, text) {
     var channel = exports.lookupChannel(chanName, config.channels);
+    var r;
+
     if (!channel) {
         logger.error('channel ' + chanName + ' not found in config!');
         return;
     }
 
     text = text.trim();
+    // get reply id
+    r = text.match(/\s#(\S+)/);
 
     return {
         channel: channel,
-        text: text
+        text: text,
+        replyTo: (r && r[1]) || undefined
     };
 };
 

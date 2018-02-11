@@ -2,6 +2,7 @@ var Telegram = require('node-telegram-bot-api');
 var config = require('../config');
 var tgUtil = require('./util');
 var logger = require('winston');
+var M = require('../message');
 
 var myUser = {};
 
@@ -34,11 +35,14 @@ var init = function(msgCallback) {
                         }
                     }
 
+                    message.original = msg;
                     message.protocol = 'tg';
                     msgCallback(message);
                 }
             });
         });
+    }).catch(function(err) {
+      console.error(err);
     });
 
     return {
@@ -91,8 +95,18 @@ var init = function(msgCallback) {
                 }
             }
 
+            var r = M.get(message.replyTo);
+            var replyId = (r && r.original && r.original.message_id) || undefined;
+
             logger.verbose('>> relaying to TG:', message.text);
-            tg.sendMessage(message.channel.tgChatId, message.text, {parse_mode: parseMode})
+            tg.sendMessage(
+                message.channel.tgChatId,
+                message.text,
+                {
+                    parse_mode: parseMode,
+                    reply_to_message_id: replyId
+                }
+            )
                 .catch(function(err) {
                     logger.error(err);
                     // resend

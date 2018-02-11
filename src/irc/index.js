@@ -68,10 +68,16 @@ var init = function(msgCallback) {
 
             logger.debug('got irc msg:', message);
             msgCallback({
+                original: {
+                    user: user,
+                    chanName: chanName,
+                    text: text
+                },
                 protocol: 'irc',
                 channel: message.channel,
                 user: user,
-                text: message.text
+                text: message.text,
+                replyTo: message.replyTo
             });
         }
     });
@@ -102,10 +108,16 @@ var init = function(msgCallback) {
 
             logger.debug('got irc msg:', notice);
             msgCallback({
+                original: {
+                    user: user,
+                    chanName: chanName,
+                    text: text
+                },
                 protocol: 'irc',
                 channel: notice.channel,
                 user: user,
-                text: notice.text
+                text: notice.text,
+                replyTo: message.replyTo
             });
         }
     });
@@ -133,11 +145,17 @@ var init = function(msgCallback) {
             }
 
             msgCallback({
+                original: {
+                    user: user,
+                    chanName: chanName,
+                    text: text
+                },
                 protocol: 'irc',
                 type: 'action',
                 channel: message.channel,
                 user: null,
-                text: formatted
+                text: formatted,
+                replyTo: message.replyTo
             });
         }
     });
@@ -151,6 +169,11 @@ var init = function(msgCallback) {
 
         if (message) {
             msgCallback({
+                original: {
+                    chanName: chanName,
+                    topic: topic,
+                    user: user
+                },
                 protocol: 'irc',
                 type: 'topic',
                 channel: message.channel,
@@ -167,6 +190,11 @@ var init = function(msgCallback) {
 
         var channel = ircUtil.lookupChannel(chanName, config.channels);
         msgCallback({
+            original: {
+                chanName: chanName,
+                user: user,
+                text: text
+            },
             protocol: 'irc',
             type: 'join',
             channel: channel,
@@ -182,6 +210,11 @@ var init = function(msgCallback) {
 
         var channel = ircUtil.lookupChannel(chanName, config.channels);
         msgCallback({
+            original: {
+                chanName: chanName,
+                user: user,
+                text: text
+            },
             protocol: 'irc',
             type: 'part',
             channel: channel,
@@ -197,6 +230,12 @@ var init = function(msgCallback) {
 
         var channel = ircUtil.lookupChannel(chanName, config.channels);
         msgCallback({
+            original: {
+                chanName: chanName,
+                user: user,
+                by: by,
+                reason: reason
+            },
             protocol: 'irc',
             type: 'part',
             channel: channel,
@@ -218,6 +257,12 @@ var init = function(msgCallback) {
 
             var channel = ircUtil.lookupChannel(channels[i], config.channels);
             msgCallback({
+                original: {
+                    user: user,
+                    text: text,
+                    channels: channels,
+                    message: message
+                },
                 protocol: 'irc',
                 type: 'quit',
                 channel: channel,
@@ -239,6 +284,16 @@ var init = function(msgCallback) {
                 // TODO: replace here any remaining newlines with username
                 // (this can happen if user configured replaceNewlines to itself
                 // contain newlines)
+            }
+
+            // append the message id
+            if (message && message.id) {
+                message.text += ' #' + message.id;
+            }
+
+            // show a part of the reply message
+            if (message && message.original && message.original.reply_to_message && message.original.reply_to_message.text) {
+                message.text += ' (' + message.original.reply_to_message.text.substr(0, 5) + '…)';
             }
 
             logger.verbose('<< relaying to IRC:', message.text);
