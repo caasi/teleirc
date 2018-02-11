@@ -2,7 +2,6 @@ var logger = require('./log');
 var argv = require('./arguments').argv;
 var git = require('git-rev-sync');
 var pjson = require('../package.json');
-var T = require('./tg/util');
 var M = require('./message');
 
 require('string.prototype.startswith');
@@ -36,7 +35,7 @@ if (argv.version) {
 
     var msgCallback = function(message) {
         // append more metadata to the message
-        var id = T.randomValueBase64(4)
+        var id = M.getId(message)
         message.id = id
         M.push(message)
 
