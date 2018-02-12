@@ -10,7 +10,8 @@ var crypto = require('crypto')
 var messages = []
 var messageMap = {}
 
-var ID_FORMAT = /\s#([a-f0-9]{4})/;
+var ID_FORMAT = /\s\$([a-f0-9]{4})/;
+var NICK_FORMAT = /^<[^>]+>\s*/;
 
 function getId(msg) {
   return crypto
@@ -38,6 +39,7 @@ function get(id) {
 
 module.exports = {
   ID_FORMAT: ID_FORMAT,
+  NICK_FORMAT: NICK_FORMAT,
   getId: getId,
   push: push,
   list: list,

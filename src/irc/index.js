@@ -3,6 +3,7 @@ var config = require('../config');
 var ircUtil = require('./util');
 var logger = require('winston');
 var _ = require('lodash');
+var M = require('../message');
 
 var shouldRelayEvent = function(event) {
     if (_.isArray(config.relayIRCEvents)) {
@@ -274,6 +275,8 @@ var init = function(msgCallback) {
 
     return {
         send: function(message, raw) {
+            var text = ''
+
             if (!raw) {
                 // strip empty lines
                 message.text = message.text.replace(/^\s*\n/gm, '');
@@ -288,12 +291,13 @@ var init = function(msgCallback) {
 
             // append the message id
             if (message && message.id) {
-                message.text += ' #' + message.id;
+                message.text += ' $' + message.id;
             }
 
             // show a part of the reply message
             if (message && message.original && message.original.reply_to_message && message.original.reply_to_message.text) {
-                message.text += ' (' + message.original.reply_to_message.text.substr(0, 5) + '…)';
+                text = message.original.reply_to_message.text.replace(M.NICK_FORMAT, '')
+                message.text += ' (' + text.substr(0, 5) + '…)';
             }
 
             logger.verbose('<< relaying to IRC:', message.text);
