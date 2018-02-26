@@ -297,7 +297,10 @@ var init = function(msgCallback) {
             // show a part of the reply message
             if (message && message.original && message.original.reply_to_message && message.original.reply_to_message.text) {
                 text = message.original.reply_to_message.text.replace(M.NICK_FORMAT, '')
-                message.text += ' (' + text.substr(0, 5) + '…)';
+                if( text.match(/^\s*https?:\/\//) )
+                    message.text += ' (' + text.match(/https?:\/\/\S*/)[0] + ' …)'
+                else
+                    message.text += ' (' + text.substr(0, 5) + '…)';
             }
 
             logger.verbose('<< relaying to IRC:', message.text);
