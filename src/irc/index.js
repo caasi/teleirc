@@ -29,8 +29,6 @@ var shouldRelayEvent = function(event) {
 };
 
 var init = function(msgCallback) {
-    config.ircOptions.channels = ircUtil.getChannels(config.channels);
-
     var nodeIrc = new NodeIrc.Client();
     nodeIrc.connect({
         host: config.ircServer,
@@ -51,8 +49,8 @@ var init = function(msgCallback) {
         config.ircPerformCmds.forEach(function(cmd) {
             nodeIrc.raw.apply(nodeIrc, cmd.split(' '));
         });
-        config.ircOptions.channels.forEach(function(channel) {
-            nodeIrc.join(channel);
+        config.channels.forEach(function(channel) {
+            nodeIrc.join(channel.ircChan, channel.chanPwd);
         });
     });
 
