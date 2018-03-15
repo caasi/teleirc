@@ -233,15 +233,26 @@ exports.uploadToImgur = function(fileId, config, tg, callback) {
                     imgur.uploadFile(convertedFilePath)
                     .then(function(json) {
                         callback(json.data.link);
+                    })
+                    .catch(function(error) {
+                        logger.error(error.message)
                     });
+                } else { // error
+                    logger.error('webp to png conversion failed');
                 }
             });
         } else {
             imgur.uploadFile(filePath)
             .then(function(json) {
                 callback(json.data.link);
+            })
+            .catch(function(error) {
+                logger.error(error.message)
             });
         }
+    })
+    .catch(function(error) {
+        logger.error(error.message)
     });
 };
 
