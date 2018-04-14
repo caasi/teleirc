@@ -36,6 +36,23 @@ var init = function(msgCallback) {
         logger.error('unhandled IRC error:', error);
     });
 
+    var MESSAGE_DELAY = 100;
+    var say = function(channel, messages) {
+      var m = messages[0];
+      var ms = messages.slice(1);
+
+      if (m === undefined) return;
+
+      try {
+        nodeIrc.say(channel, m);
+        setTimeout(say, MESSAGE_DELAY, channel, ms);
+      } catch (error) {
+        // log the error and try again
+        logger.error('handled IRC error:', error);
+        setTimeout(say, MESSAGE_DELAY, channel, messages);
+      }
+    };
+
     nodeIrc.on('registered', function() {
         // IRC perform on connect
         config.ircPerformCmds.forEach(function(cmd) {
@@ -304,7 +321,7 @@ var init = function(msgCallback) {
             }
 
             logger.verbose('<< relaying to IRC:', message.text);
-            nodeIrc.say(message.channel.ircChan, message.text);
+            say(message.channel.ircChan, message.text.split('\n'));
         },
         getNames: function(channel) {
             return ircUtil.getNames(nodeIrc.chans[channel.ircChan.toLowerCase()]);
