@@ -88,6 +88,11 @@ if (argv.version) {
                         message.text = 'Command "' + command + '" executed.';
                         return tg.send(message);
                     }
+                } else if (message.cmd === 'broadcast') {
+                    message.text = message.text + ' (Bot Broadcast)';
+                    tg.send(message);
+                    irc.send(message);
+                    return;
                 } else {
                     irc.send(message);
                 }

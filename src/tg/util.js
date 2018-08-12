@@ -10,6 +10,7 @@ var logger = require('winston');
 var imgur = require('imgur');
 var os = require('os');
 var child_process = require('child_process');
+var Chan = require('../channels');
 var M = require('../message');
 
 if (config.uploadToImgur) {
@@ -247,9 +248,7 @@ var reconstructMarkdown = function(msg) {
 exports.parseMsg = function(msg, myUser, tg, callback) {
     // TODO: Telegram code should not have to deal with IRC channels at all
 
-    var channel = config.channels.filter(function(channel) {
-        return channel.tgGroup === msg.chat.title;
-    })[0];
+    var channel = Chan.findByGroup(config.channels, msg.chat.title);
 
     if (!channel) {
         logger.verbose('Telegram group not found in config: "' +
@@ -328,6 +327,28 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
         return callback({
             channel: channel,
             text: text
+        });
+    } else if (msg.text && !msg.text.indexOf('/say')) {
+        var text, title, channel;
+        text = msg.text.split(' ');
+        text.shift();
+        title = text.shift();
+        channel = Chan.findByChannel(config.channels, title);
+
+        if (!channel) {
+          logger.verbose('channel not found:', channel);
+          return callback();
+        }
+
+        if (msg && msg.from && msg.from.username !== config.owner) {
+          logger.verbose('you have to be the bot owner to broadcast to ' + channel + ':', text);
+          return callback();
+        }
+
+        return callback({
+          channel: channel,
+          cmd: 'broadcast',
+          text: text.join(' ')
         });
     } else if (msg.text && !msg.text.indexOf('/')) { // drop other commands
         logger.verbose('ignoring unknown command:', msg.text);
