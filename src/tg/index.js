@@ -72,22 +72,14 @@ var init = function(msgCallback) {
                 parseMode = undefined;
             }
 
-            var textMessage;
+            var fallbackText = message.text || '';
             if (message.user) {
-                var nick = '<' + message.user + '>';
+                var nick;
 
                 // save the message to fallback to plain text
-                textMessage = nick + ' ' + message.text;
+                fallbackText = '<' + message.user + '> ' + message.text;
 
-                if (config.emNick) {
-                    if (parseMode === 'markdown') {
-                        nick = '<*' + message.user + '*>';
-                    }
-                    if (parseMode === 'html') {
-                        nick = '&lt;<b>' + message.user + '</b>&gt;';
-                    }
-                }
-
+                nick = tgUtil.formatNick(config, message.user);
                 message.text = nick + ' ' + message.text;
 
                 if (parseMode === 'markdown') {
@@ -115,7 +107,7 @@ var init = function(msgCallback) {
                     logger.error(err);
                     // resend
                     logger.verbose('>> fallback to plain text');
-                    return tg.sendMessage(message.channel.tgChatId, textMessage);
+                    return tg.sendMessage(message.channel.tgChatId, fallbackText);
                 });
         }
     };

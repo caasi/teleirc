@@ -245,6 +245,21 @@ var reconstructMarkdown = function(msg) {
     });
 };
 
+function formatNick(config, username) {
+    if (config.emNick) {
+        if (config.parseMode === 'markdown') {
+            return '<*' + username + '*>';
+        }
+        if (config.parseMode === 'html') {
+            return '&lt;<b>' + username + '</b>&gt;';
+        }
+    }
+
+    return '<' + username + '>';
+}
+
+exports.formatNick = formatNick;
+
 function commandSay(msg, myUser, tg, callback) {
     var text, title, channel;
 
@@ -252,6 +267,11 @@ function commandSay(msg, myUser, tg, callback) {
     text.shift();
     title = text.shift();
     channel = Chan.findByChannel(config.channels, title);
+    text = text.join(' ');
+
+    if (config.parseMode === 'html') {
+        text = text.replace(/</g, '&lt;');
+    }
 
     if (!channel) {
         logger.verbose('channel not found:', channel);
@@ -261,7 +281,7 @@ function commandSay(msg, myUser, tg, callback) {
     return callback({
         channel: channel,
         cmd: 'broadcast',
-        text: text.join(' ')
+        text: text
     });
 }
 
