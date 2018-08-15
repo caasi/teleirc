@@ -245,10 +245,39 @@ var reconstructMarkdown = function(msg) {
     });
 };
 
+function commandSay(msg, myUser, tg, callback) {
+    var text, title, channel;
+
+    text = msg.text.split(' ');
+    text.shift();
+    title = text.shift();
+    channel = Chan.findByChannel(config.channels, title);
+
+    if (!channel) {
+        logger.verbose('channel not found:', channel);
+        return callback();
+    }
+
+    return callback({
+        channel: channel,
+        cmd: 'broadcast',
+        text: text.join(' ')
+    });
+}
+
 exports.parseMsg = function(msg, myUser, tg, callback) {
+    var channel;
     // TODO: Telegram code should not have to deal with IRC channels at all
 
-    var channel = Chan.findByGroup(config.channels, msg.chat.title);
+    // private commands
+    if (msg && msg.chat && msg.chat.type === 'private') {
+        if (msg.text && !msg.text.indexOf('/say')) {
+            return commandSay(msg, myUser, tg, callback);
+        }
+    }
+
+    // public commands
+    channel = Chan.findByGroup(config.channels, msg.chat.title);
 
     if (!channel) {
         logger.verbose('Telegram group not found in config: "' +
@@ -329,27 +358,7 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
             text: text
         });
     } else if (msg.text && !msg.text.indexOf('/say')) {
-        var text, title, channel;
-        text = msg.text.split(' ');
-        text.shift();
-        title = text.shift();
-        channel = Chan.findByChannel(config.channels, title);
-
-        if (!channel) {
-          logger.verbose('channel not found:', channel);
-          return callback();
-        }
-
-        if (msg && msg.from && msg.from.username !== config.owner) {
-          logger.verbose('you have to be the bot owner to broadcast to ' + channel + ':', text);
-          return callback();
-        }
-
-        return callback({
-          channel: channel,
-          cmd: 'broadcast',
-          text: text.join(' ')
-        });
+        return commandSay(msg, myUser, tg, callback);
     } else if (msg.text && !msg.text.indexOf('/')) { // drop other commands
         logger.verbose('ignoring unknown command:', msg.text);
         return;
