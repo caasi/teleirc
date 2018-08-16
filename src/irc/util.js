@@ -1,3 +1,4 @@
+var url = require('url');
 var config = require('../config');
 var logger = require('winston');
 var M = require('../message');
@@ -72,6 +73,32 @@ exports.parseTopic = function(chanName, topic, user) {
         text: exports.topicFormat(channel, topic, user)
     };
 };
+
+// parse and simplify URLs
+exports.parseUrl = function(str) {
+  var match, user, id;
+  var myUrl = url.parse(str);
+
+  if (myUrl.hostname.indexOf('facebook') !== -1) {
+      host = myUrl.host.replace('www.facebook', 'fb');
+
+      // pattern: /<fb-id>/photos/<set>/<photo-id>
+      match = /\/([^\/]*)\/photos\/[^\/]*\/([^\/]*)/.exec(myUrl.pathname);
+      if (match) {
+          user = match[1] || '';
+          id = match[2] || '';
+          return {
+            type: 'fb-photo',
+            url: myUrl.protocol + '//' + host + '/' + user + '/photos/' + id
+          };
+      }
+  }
+
+  return {
+      type: 'url',
+      url: str
+  };
+}
 
 // returns list of names from given channel
 exports.getNames = function(nodeIrcChannel) {

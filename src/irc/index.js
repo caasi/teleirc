@@ -301,6 +301,11 @@ var init = function(msgCallback) {
                 // replace newlines
                 message.text = message.text.replace(/\n/g, config.replaceNewlines);
 
+                // simplify URLs
+                message.text = message.text.replace(/https?:\/\/\S*/g, function(match) {
+                    return ircUtil.parseUrl(match).url;
+                });
+
                 // TODO: replace here any remaining newlines with username
                 // (this can happen if user configured replaceNewlines to itself
                 // contain newlines)
@@ -315,9 +320,9 @@ var init = function(msgCallback) {
             if (message && message.original && message.original.reply_to_message && message.original.reply_to_message.text) {
                 text = message.original.reply_to_message.text.replace(M.NICK_FORMAT, '')
                 if( text.match(/^\s*https?:\/\//) )
-                    message.text += ' (' + text.match(/https?:\/\/\S*/)[0] + ' …)'
+                    message.text += ' <' + ircUtil.parseUrl(text.match(/https?:\/\/\S*/)[0]).url + '>'
                 else
-                    message.text += ' (' + text.substr(0, 5) + '…)';
+                    message.text += ' (' + text.substr(0, 10) + '…)';
             }
 
             logger.verbose('<< relaying to IRC:', message.text);
