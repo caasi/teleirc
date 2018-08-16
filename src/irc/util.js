@@ -98,17 +98,29 @@ exports.parseUrl = function(str) {
   }
   query = stripped;
 
-  if (myUrl.hostname.indexOf('facebook') !== -1) {
-      host = myUrl.host.replace('www.facebook', 'fb');
+  if (myUrl.hostname.indexOf('facebook\.com') !== -1) {
+      // use the shortened desktop URL
+      host = myUrl.host.replace(/(?:(?:www\.)|(?:m\.))?facebook/, 'fb');
 
       // pattern: /<fb-id>/photos/<set>/<photo-id>
-      match = /\/([^\/]*)\/photos\/[^\/]*\/([^\/]*)/.exec(myUrl.pathname);
-      if (match) {
+      if(match = /\/([^\/]*)\/photos\/[^\/]*\/([^\/]*)/.exec(myUrl.pathname)) {
           user = match[1] || '';
           id = match[2] || '';
           return {
               type: 'fb-photo',
               url: buildUrl(myUrl.protocol, '', host, '/' + user + '/photos/' + id)
+          };
+      }
+
+      // pattern: photo.php?fbid=<fbid>&set=<set>
+      if (myUrl.pathname.match(/photo\.php/)) {
+          stripped = {
+              fbid: query.fbid,
+              set: query.set
+          };
+          return {
+              type: 'fb-photo',
+              url: buildUrl(myUrl.protocol, '', host, '/photo.php', qs.stringify(stripped))
           };
       }
 
@@ -124,15 +136,27 @@ exports.parseUrl = function(str) {
           };
       }
 
-      // pattern: photo.php?fbid=<fbid>&set=<set>
-      if (myUrl.pathname.match(/photo\.php/)) {
+      // pattern: media/set/?set=<set>
+      if (myUrl.pathname.match(/media\/set/)) {
           stripped = {
-              fbid: query.fbid,
               set: query.set
           };
           return {
-              type: 'fb-photo-set',
-              url: buildUrl(myUrl.protocol, '', host, '/photo.php', qs.stringify(stripped))
+              type: 'fb-album',
+              url: buildUrl(myUrl.protocol, '', host, '/media/set/', qs.stringify(stripped))
+          };
+      }
+
+      // pattern: (pg/)<id>/photos/?tab=album&album_id=<album_id>
+      if (match = myUrl.pathname.match(/(?:\/pg)?\/([^\/]*)\/photos/)) {
+          user = match[1] || '';
+          stripped = {
+              tab: 'album',
+              album_id: query.album_id
+          };
+          return {
+              type: 'fb-album',
+              url: buildUrl(myUrl.protocol, '', host, '/' + user + '/photos/', qs.stringify(stripped))
           };
       }
   }
