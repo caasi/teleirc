@@ -31,6 +31,7 @@
     "node-static": "^0.7.7",
     "node-telegram-bot-api": "^0.27.0",
     "os-homedir": "^1.0.1",
+    "qs": "^6.5.2",
     "string.prototype.startswith": "^0.2.0",
     "winston": "^2.2.0",
     "yargs": "^4.7.0"

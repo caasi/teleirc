@@ -1,4 +1,5 @@
 var url = require('url');
+var qs = require('qs');
 var config = require('../config');
 var logger = require('winston');
 var M = require('../message');
@@ -74,10 +75,28 @@ exports.parseTopic = function(chanName, topic, user) {
     };
 };
 
+function buildUrl(protocol, auth, host, pathname, query, hash) {
+  var r = protocol + '//';
+  if (auth) r += auth + '@';
+  r += host + pathname;
+  if (query) r += '?' + query;
+  if (hash) r += hash;
+  return r;
+}
+
 // parse and simplify URLs
 exports.parseUrl = function(str) {
-  var match, user, id;
+  var match, user, id, query, stripped, k;
   var myUrl = url.parse(str);
+
+  // remove utm terms
+  query = qs.parse(myUrl.query);
+  stripped = {};
+  for (k in query) {
+      if (k.match(/^utm_/)) continue;
+      stripped[k] = query[k];
+  }
+  query = stripped;
 
   if (myUrl.hostname.indexOf('facebook') !== -1) {
       host = myUrl.host.replace('www.facebook', 'fb');
@@ -88,15 +107,39 @@ exports.parseUrl = function(str) {
           user = match[1] || '';
           id = match[2] || '';
           return {
-            type: 'fb-photo',
-            url: myUrl.protocol + '//' + host + '/' + user + '/photos/' + id
+              type: 'fb-photo',
+              url: buildUrl(myUrl.protocol, '', host, '/' + user + '/photos/' + id)
+          };
+      }
+
+      // pattern: story.php?story_fbid=<story_fbid>&id=<id>
+      if (myUrl.pathname.match(/story\.php/)) {
+          stripped = {
+              story_fbid: query.story_fbid,
+              id: query.id
+          };
+          return {
+              type: 'fb-story',
+              url: buildUrl(myUrl.protocol, '', host, '/story.php', qs.stringify(stripped))
+          };
+      }
+
+      // pattern: photo.php?fbid=<fbid>&set=<set>
+      if (myUrl.pathname.match(/photo\.php/)) {
+          stripped = {
+              fbid: query.fbid,
+              set: query.set
+          };
+          return {
+              type: 'fb-photo-set',
+              url: buildUrl(myUrl.protocol, '', host, '/photo.php', qs.stringify(stripped))
           };
       }
   }
 
   return {
       type: 'url',
-      url: str
+      url: buildUrl(myUrl.protocol, myUrl.auth, myUrl.host, myUrl.pathname, qs.stringify(query), myUrl.hash)
   };
 }
 
