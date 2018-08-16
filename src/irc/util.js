@@ -98,7 +98,7 @@ exports.parseUrl = function(str) {
   }
   query = stripped;
 
-  if (myUrl.hostname.indexOf('facebook\.com') !== -1) {
+  if (myUrl.hostname.indexOf('facebook.com') !== -1) {
       // use the shortened desktop URL
       host = myUrl.host.replace(/(?:(?:www\.)|(?:m\.))?facebook/, 'fb');
 
@@ -157,6 +157,18 @@ exports.parseUrl = function(str) {
           return {
               type: 'fb-album',
               url: buildUrl(myUrl.protocol, '', host, '/' + user + '/photos/', qs.stringify(stripped))
+          };
+      }
+  }
+
+  if (myUrl.hostname.indexOf('medium.com') !== -1) {
+      // pattern: <id>/<whatever>-<article_id in hex>
+      if (match = myUrl.pathname.match(/([^\/]*)\/[^\/]*-([0-9a-f]+)$/)) {
+          user = match[1] || '';
+          id = match[2] || '';
+          return {
+              type: 'medium',
+              url: buildUrl(myUrl.protocol, '', myUrl.host, '/' + user + '/' + id)
           };
       }
   }
