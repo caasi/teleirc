@@ -159,6 +159,15 @@ exports.parseUrl = function(str) {
               url: buildUrl(myUrl.protocol, '', host, '/' + user + '/photos/', qs.stringify(stripped))
           };
       }
+
+      // pattern: groups/<fbid>/permalink/<id>/
+      if (match = myUrl.pathname.match(/groups\//)) {
+          return {
+              type: 'fb-group-post',
+              // remove the query string
+              url: buildUrl(myUrl.protocol, '', host, myUrl.pathname)
+          };
+      }
   }
 
   if (myUrl.hostname.indexOf('medium.com') !== -1) {
