@@ -103,7 +103,7 @@ exports.parseUrl = function(str) {
       host = myUrl.host.replace(/(?:(?:www\.)|(?:m\.))?facebook/, 'fb');
 
       // pattern: /<fb-id>/photos/<set>/<photo-id>
-      if(match = /\/([^\/]*)\/photos\/[^\/]*\/([^\/]*)/.exec(myUrl.pathname)) {
+      if(match = /\/([^\/]+)\/photos\/[^\/]+\/([^\/]+)/.exec(myUrl.pathname)) {
           user = match[1] || '';
           id = match[2] || '';
           return {
@@ -148,7 +148,7 @@ exports.parseUrl = function(str) {
       }
 
       // pattern: (pg/)<id>/photos/?tab=album&album_id=<album_id>
-      if (match = myUrl.pathname.match(/(?:\/pg)?\/([^\/]*)\/photos/)) {
+      if (match = myUrl.pathname.match(/(?:\/pg)?\/([^\/]+)\/photos/)) {
           user = match[1] || '';
           stripped = {
               tab: 'album',
@@ -168,16 +168,37 @@ exports.parseUrl = function(str) {
               url: buildUrl(myUrl.protocol, '', host, myUrl.pathname)
           };
       }
+
+      // pattern: /notes/guardian-angel/<title>/<id>/
+      if (match = myUrl.pathname.match(/notes\/([^\/]+)\/[^\/]+\/(\d+)/)) {
+          user = match[1] || '';
+          id = match[2] || '';
+          return {
+              type: 'fb-note',
+              url: buildUrl(myUrl.protocol, '', host, '/notes/' + user + '/' + id)
+          };
+      }
   }
 
   if (myUrl.hostname.indexOf('medium.com') !== -1) {
       // pattern: <id>/<whatever>-<article_id in hex>
-      if (match = myUrl.pathname.match(/([^\/]*)\/[^\/]*-([0-9a-f]+)$/)) {
+      if (match = myUrl.pathname.match(/([^\/]+)\/[^\/]+-([0-9a-f]+)$/)) {
           user = match[1] || '';
           id = match[2] || '';
           return {
               type: 'medium',
               url: buildUrl(myUrl.protocol, '', myUrl.host, '/' + user + '/' + id)
+          };
+      }
+  }
+
+  if (myUrl.hostname.indexOf('pixnet.net') !== -1) {
+      // pattern: <user>.pixnet.net/blog/post/42599684-<title>
+      if (match = myUrl.pathname.match(/blog\/post\/(\d+)/)) {
+          id = match[1] || '';
+          return {
+              type: 'pixnet',
+              url: buildUrl(myUrl.protocol, '', myUrl.host, '/blog/post/' + id)
           };
       }
   }
