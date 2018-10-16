@@ -203,6 +203,17 @@ exports.parseUrl = function(str) {
       }
   }
 
+  if (myUrl.hostname.indexOf('news.gamme.com.tw') !== -1) {
+      // pattern: news.gamme.com.tw/<title>-<article_id>
+      if (match = myUrl.pathname.match(/-(\d+)$/)) {
+          id = match[1] || '';
+          return {
+              type: 'gamme',
+              url: buildUrl(myUrl.protocol, '', myUrl.host, '/' + id)
+          };
+      }
+  }
+
   return {
       type: 'url',
       url: buildUrl(myUrl.protocol, myUrl.auth, myUrl.host, myUrl.pathname, qs.stringify(query), myUrl.hash)
