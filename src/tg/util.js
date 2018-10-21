@@ -145,18 +145,42 @@ exports.convertMedia = function(filePath, config) {
     return filePath;
 };
 
+var fileIdPathMap = {};
+var getFilePathById = function(fileId) {
+    var filePath = fileIdPathMap[fileId];
+    if (!filePath) return Promise.reject('File not found: ' + fileId);
+
+    return new Promise(function(resolve, reject) {
+        fs.stat(filePath, function(err, stats) {
+            if (err) return reject(err);
+            stats.isFile()
+                ? resolve(filePath)
+                : reject('Not a file: ' + filePath);
+        });
+    });
+};
+
 exports.serveFile = function(fileId, config, tg, callback) {
     var filesPath = path.join(osHomedir(), '.teleirc', 'files');
+    mkdirp(filesPath);
 
-    var randomString = exports.randomValueBase64(config.mediaRandomLength);
-    mkdirp(path.join(filesPath, randomString));
-    tg.downloadFile(fileId, path.join(filesPath, randomString))
-    .then(function(filePath) {
-        return exports.convertMedia(filePath, config);
+    var saveFilePath = function(filePath) {
+        fileIdPathMap[fileId] = filePath;
+        return filePath;
+    };
+    var createFileUrl = function(filePath) {
+        return config.httpLocation + '/' + path.basename(filePath);
+    };
+
+    getFilePathById(fileId)
+    .catch(function(err) {
+        logger.error(err);
+        return tg.downloadFile(fileId, filesPath)
+        .then(function(filePath) { return exports.convertMedia(filePath, config) })
+        .then(saveFilePath);
     })
-    .then(function(filePath) {
-        callback(config.httpLocation + '/' + randomString + '/' + path.basename(filePath));
-    });
+    .then(createFileUrl)
+    .then(callback);
 };
 
 exports.uploadToImgur = function(fileId, config, tg, callback) {
