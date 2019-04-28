@@ -46,23 +46,6 @@ var init = function(msgCallback) {
         logger.error('unhandled IRC error:', error);
     });
 
-    var MESSAGE_DELAY = 100;
-    var say = function(channel, messages) {
-      var m = messages[0];
-      var ms = messages.slice(1);
-
-      if (m === undefined) return;
-
-      try {
-        nodeIrc.say(channel, m);
-        setTimeout(say, MESSAGE_DELAY, channel, ms);
-      } catch (error) {
-        // log the error and try again
-        logger.error('handled IRC error:', error);
-        setTimeout(say, MESSAGE_DELAY, channel, messages);
-      }
-    };
-
     nodeIrc.on('registered', function() {
         // IRC perform on connect
         config.ircPerformCmds.forEach(function(cmd) {
@@ -346,7 +329,7 @@ var init = function(msgCallback) {
             if (multi) {
                 logger.verbose('<< relaying to IRC w/ multiple lines:', message.text);
                 message.text.split('\n').forEach(function(msg) {
-                    say(message.channel.ircChan, msg);
+                    nodeIrc.say(message.channel.ircChan, msg);
                 });
                 return;
             }
@@ -379,12 +362,12 @@ var init = function(msgCallback) {
             logger.verbose('<< relaying to IRC:', message.text);
             if (config.replaceNewlines.indexOf('\n') < 0) {
                 logger.verbose('<< relaying to IRC:', message.text);
-                say(message.channel.ircChan, message.text);
+                nodeIrc.say(message.channel.ircChan, message.text);
             } else {
                 var username = message.text.slice(0, message.text.indexOf('>') + 2);
                 var rest = message.text.slice(message.text.indexOf('>') + 2);
                 rest.split('\n').forEach(function(msg) {
-                    say(message.channel.ircChan, username + msg);
+                    nodeIrc.say(message.channel.ircChan, username + msg);
                 });
             }
         },
