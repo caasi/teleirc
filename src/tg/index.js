@@ -43,7 +43,7 @@ var init = function(msgCallback) {
                     msgCallback(message);
                 }
             });
-        });
+        };
 
         tg.on('message', recieveMessage);
         if (config.relayEdited) {
