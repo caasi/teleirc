@@ -309,12 +309,7 @@ var init = function(msgCallback) {
             return usersStr + ', ' + user.nick;
         }, '');
         msgCallback({
-            original: {
-                user: user,
-                text: text,
-                channels: channels,
-                message: message
-            },
+            original: event,
             protocol: 'irc',
             channel: channel,
             user: '',
