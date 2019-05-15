@@ -49,7 +49,7 @@ function push(msg) {
 }
 
 function list() {
-  return Object.values(messageMap)
+  return messageMap
 }
 
 function get(id) {
