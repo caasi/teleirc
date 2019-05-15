@@ -21,6 +21,9 @@ module.exports = {
 
         .describe('upgrade-config', 'Replace deprecated options and add new options to config')
 
+        .alias('m', 'messages')
+        .describe('m', 'IRC Telegram message id map')
+
         .alias('h', 'help')
         .help()
         .strict()

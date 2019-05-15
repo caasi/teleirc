@@ -95,9 +95,7 @@ var init = function(msgCallback) {
                 }
             }
 
-            var r = M.get(message.replyTo);
-            var replyId = (r && r.original && r.original.message_id) || undefined;
-
+            var replyId = M.get(message.replyTo);
             if (replyId) {
                 message.text = message.text.replace(M.ID_FORMAT, '');
             }
