@@ -232,7 +232,7 @@ exports.initHttpServer = function() {
                 fileServer.serve(req, res);
             }
         }).resume();
-    }).listen(config.httpPort);
+    }).listen(config.httpPort, config.httpHost);
 };
 
 // reconstructs the original raw markdown message
