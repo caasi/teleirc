@@ -50,6 +50,10 @@ config.maxMsgAge = 60;
 // HTTP server port
 config.httpPort = 9090;
 
+// HTTP server bind address. Unset listens on all interfaces. Set it to
+// '127.0.0.1' when a reverse proxy on the same host serves httpLocation.
+// config.httpHost = '127.0.0.1';
+
 // HTTP server location, URLs are generated from this
 config.httpLocation = 'http://mydomain.com' + ':' + config.httpPort;
 
