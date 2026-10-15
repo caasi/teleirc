@@ -103,4 +103,16 @@ describe('irc/index', function() {
             done();
         });
     });
+
+    it('ignores an action to a target that is not a bridged channel', function(done) {
+        // A private "/me" to the bot. The channel NOTICE after it shows that
+        // the bridge is still up and that it did not relay the action.
+        server = startBridge([
+            ':erin!e@h PRIVMSG bot :\x01ACTION waves\x01',
+            ':erin!e@h NOTICE #chan :still here'
+        ], function(message) {
+            assert.strictEqual(message.text, 'still here');
+            done();
+        });
+    });
 });
