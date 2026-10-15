@@ -104,7 +104,9 @@ exports.getName = function(user, config) {
 };
 
 exports.getIRCName = function(msg, config) {
-    var ircNickMatchRE = /^<(.*)> (.*)/;
+    // An IRC nick has no '>' and no white space, so the nick ends at the
+    // first '>'. The text can have '>' and more than one line.
+    var ircNickMatchRE = /^<([^>\s]+)> ([\s\S]*)/;
     var results = ircNickMatchRE.exec(msg.text);
     var name;
     if (!results) {
