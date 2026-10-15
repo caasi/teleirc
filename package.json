@@ -8,7 +8,7 @@
   "scripts": {
     "start": "node bin/teleirc",
     "genconfig": "node bin/teleirc --genconfig",
-    "test": "NODE_ENV=test ./node_modules/mocha/bin/mocha",
+    "test": "NODE_ENV=test ./node_modules/mocha/bin/mocha --exit",
     "join-tg": "node src/join-tg.js"
   },
   "version": "0.4.7",

@@ -62,149 +62,164 @@ exports.parseTopic = function(chanName, topic, user) {
 };
 
 function buildUrl(protocol, auth, host, pathname, query, hash) {
-  var r = protocol + '//';
-  if (auth) r += auth + '@';
-  r += host + pathname;
-  if (query) r += '?' + query;
-  if (hash) r += hash;
-  return r;
+    var r = protocol + '//';
+    if (auth) {
+        r += auth + '@';
+    }
+    r += host + pathname;
+    if (query) {
+        r += '?' + query;
+    }
+    if (hash) {
+        r += hash;
+    }
+    return r;
 }
 
 // parse and simplify URLs
 exports.parseUrl = function(str) {
-  var match, user, id, query, stripped, k;
-  var myUrl = url.parse(str);
+    var match;
+    var user;
+    var id;
+    var query;
+    var stripped;
+    var k;
+    var myUrl = url.parse(str);
 
-  // remove utm terms
-  query = qs.parse(myUrl.query);
-  stripped = {};
-  for (k in query) {
-      if (k.match(/^utm_/)) continue;
-      stripped[k] = query[k];
-  }
-  query = stripped;
+    // remove utm terms
+    query = qs.parse(myUrl.query);
+    stripped = {};
+    for (k in query) {
+        if (k.match(/^utm_/)) {
+            continue;
+        }
+        stripped[k] = query[k];
+    }
+    query = stripped;
 
-  if (myUrl.hostname.indexOf('facebook.com') !== -1) {
-      // use the shortened desktop URL
-      host = myUrl.host.replace(/(?:(?:www\.)|(?:m\.))?facebook/, 'fb');
+    if (myUrl.hostname.indexOf('facebook.com') !== -1) {
+        // use the shortened desktop URL
+        host = myUrl.host.replace(/(?:(?:www\.)|(?:m\.))?facebook/, 'fb');
 
-      // pattern: /<fb-id>/photos/<set>/<photo-id>
-      if(match = /\/([^\/]+)\/photos\/[^\/]+\/([^\/]+)/.exec(myUrl.pathname)) {
-          user = match[1] || '';
-          id = match[2] || '';
-          return {
-              type: 'fb-photo',
-              url: buildUrl(myUrl.protocol, '', host, '/' + user + '/photos/' + id)
-          };
-      }
+        // pattern: /<fb-id>/photos/<set>/<photo-id>
+        if ((match = /\/([^\/]+)\/photos\/[^\/]+\/([^\/]+)/.exec(myUrl.pathname))) {
+            user = match[1] || '';
+            id = match[2] || '';
+            return {
+                type: 'fb-photo',
+                url: buildUrl(myUrl.protocol, '', host, '/' + user + '/photos/' + id)
+            };
+        }
 
-      // pattern: photo.php?fbid=<fbid>&set=<set>
-      if (myUrl.pathname.match(/photo\.php/)) {
-          stripped = {
-              fbid: query.fbid,
-              set: query.set
-          };
-          return {
-              type: 'fb-photo',
-              url: buildUrl(myUrl.protocol, '', host, '/photo.php', qs.stringify(stripped))
-          };
-      }
+        // pattern: photo.php?fbid=<fbid>&set=<set>
+        if (myUrl.pathname.match(/photo\.php/)) {
+            stripped = {
+                fbid: query.fbid,
+                set: query.set
+            };
+            return {
+                type: 'fb-photo',
+                url: buildUrl(myUrl.protocol, '', host, '/photo.php', qs.stringify(stripped))
+            };
+        }
 
-      // pattern: story.php?story_fbid=<story_fbid>&id=<id>
-      if (myUrl.pathname.match(/story\.php/)) {
-          stripped = {
-              story_fbid: query.story_fbid,
-              id: query.id
-          };
-          return {
-              type: 'fb-story',
-              url: buildUrl(myUrl.protocol, '', host, '/story.php', qs.stringify(stripped))
-          };
-      }
+        // pattern: story.php?story_fbid=<story_fbid>&id=<id>
+        if (myUrl.pathname.match(/story\.php/)) {
+            stripped = {
+                story_fbid: query.story_fbid,
+                id: query.id
+            };
+            return {
+                type: 'fb-story',
+                url: buildUrl(myUrl.protocol, '', host, '/story.php', qs.stringify(stripped))
+            };
+        }
 
-      // pattern: media/set/?set=<set>
-      if (myUrl.pathname.match(/media\/set/)) {
-          stripped = {
-              set: query.set
-          };
-          return {
-              type: 'fb-album',
-              url: buildUrl(myUrl.protocol, '', host, '/media/set/', qs.stringify(stripped))
-          };
-      }
+        // pattern: media/set/?set=<set>
+        if (myUrl.pathname.match(/media\/set/)) {
+            stripped = {
+                set: query.set
+            };
+            return {
+                type: 'fb-album',
+                url: buildUrl(myUrl.protocol, '', host, '/media/set/', qs.stringify(stripped))
+            };
+        }
 
-      // pattern: (pg/)<id>/photos/?tab=album&album_id=<album_id>
-      if (match = myUrl.pathname.match(/(?:\/pg)?\/([^\/]+)\/photos/)) {
-          user = match[1] || '';
-          stripped = {
-              tab: 'album',
-              album_id: query.album_id
-          };
-          return {
-              type: 'fb-album',
-              url: buildUrl(myUrl.protocol, '', host, '/' + user + '/photos/', qs.stringify(stripped))
-          };
-      }
+        // pattern: (pg/)<id>/photos/?tab=album&album_id=<album_id>
+        if ((match = myUrl.pathname.match(/(?:\/pg)?\/([^\/]+)\/photos/))) {
+            user = match[1] || '';
+            stripped = {
+                tab: 'album',
+                album_id: query.album_id
+            };
+            return {
+                type: 'fb-album',
+                url: buildUrl(myUrl.protocol, '', host, '/' + user + '/photos/',
+                              qs.stringify(stripped))
+            };
+        }
 
-      // pattern: groups/<fbid>/permalink/<id>/
-      if (match = myUrl.pathname.match(/groups\//)) {
-          return {
-              type: 'fb-group-post',
-              // remove the query string
-              url: buildUrl(myUrl.protocol, '', host, myUrl.pathname)
-          };
-      }
+        // pattern: groups/<fbid>/permalink/<id>/
+        if ((match = myUrl.pathname.match(/groups\//))) {
+            return {
+                type: 'fb-group-post',
+                // remove the query string
+                url: buildUrl(myUrl.protocol, '', host, myUrl.pathname)
+            };
+        }
 
-      // pattern: /notes/guardian-angel/<title>/<id>/
-      if (match = myUrl.pathname.match(/notes\/([^\/]+)\/[^\/]+\/(\d+)/)) {
-          user = match[1] || '';
-          id = match[2] || '';
-          return {
-              type: 'fb-note',
-              url: buildUrl(myUrl.protocol, '', host, '/notes/' + user + '/' + id)
-          };
-      }
-  }
+        // pattern: /notes/guardian-angel/<title>/<id>/
+        if ((match = myUrl.pathname.match(/notes\/([^\/]+)\/[^\/]+\/(\d+)/))) {
+            user = match[1] || '';
+            id = match[2] || '';
+            return {
+                type: 'fb-note',
+                url: buildUrl(myUrl.protocol, '', host, '/notes/' + user + '/' + id)
+            };
+        }
+    }
 
-  if (myUrl.hostname.indexOf('medium.com') !== -1) {
-      // pattern: <id>/<whatever>-<article_id in hex>
-      if (match = myUrl.pathname.match(/([^\/]+)\/[^\/]+-([0-9a-f]+)$/)) {
-          user = match[1] || '';
-          id = match[2] || '';
-          return {
-              type: 'medium',
-              url: buildUrl(myUrl.protocol, '', myUrl.host, '/' + user + '/' + id)
-          };
-      }
-  }
+    if (myUrl.hostname.indexOf('medium.com') !== -1) {
+        // pattern: <id>/<whatever>-<article_id in hex>
+        if ((match = myUrl.pathname.match(/([^\/]+)\/[^\/]+-([0-9a-f]+)$/))) {
+            user = match[1] || '';
+            id = match[2] || '';
+            return {
+                type: 'medium',
+                url: buildUrl(myUrl.protocol, '', myUrl.host, '/' + user + '/' + id)
+            };
+        }
+    }
 
-  if (myUrl.hostname.indexOf('pixnet.net') !== -1) {
-      // pattern: <user>.pixnet.net/blog/post/42599684-<title>
-      if (match = myUrl.pathname.match(/blog\/post\/(\d+)/)) {
-          id = match[1] || '';
-          return {
-              type: 'pixnet',
-              url: buildUrl(myUrl.protocol, '', myUrl.host, '/blog/post/' + id)
-          };
-      }
-  }
+    if (myUrl.hostname.indexOf('pixnet.net') !== -1) {
+        // pattern: <user>.pixnet.net/blog/post/42599684-<title>
+        if ((match = myUrl.pathname.match(/blog\/post\/(\d+)/))) {
+            id = match[1] || '';
+            return {
+                type: 'pixnet',
+                url: buildUrl(myUrl.protocol, '', myUrl.host, '/blog/post/' + id)
+            };
+        }
+    }
 
-  if (myUrl.hostname.indexOf('news.gamme.com.tw') !== -1) {
-      // pattern: news.gamme.com.tw/<title>-<article_id>
-      if (match = myUrl.pathname.match(/-(\d+)$/)) {
-          id = match[1] || '';
-          return {
-              type: 'gamme',
-              url: buildUrl(myUrl.protocol, '', myUrl.host, '/' + id)
-          };
-      }
-  }
+    if (myUrl.hostname.indexOf('news.gamme.com.tw') !== -1) {
+        // pattern: news.gamme.com.tw/<title>-<article_id>
+        if ((match = myUrl.pathname.match(/-(\d+)$/))) {
+            id = match[1] || '';
+            return {
+                type: 'gamme',
+                url: buildUrl(myUrl.protocol, '', myUrl.host, '/' + id)
+            };
+        }
+    }
 
-  return {
-      type: 'url',
-      url: buildUrl(myUrl.protocol, myUrl.auth, myUrl.host, myUrl.pathname, qs.stringify(query), myUrl.hash)
-  };
-}
+    return {
+        type: 'url',
+        url: buildUrl(myUrl.protocol, myUrl.auth, myUrl.host, myUrl.pathname,
+                      qs.stringify(query), myUrl.hash)
+    };
+};
 
 // returns list of names from given channel
 exports.getNames = function(nodeIrcChannel) {
