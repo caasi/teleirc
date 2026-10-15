@@ -71,7 +71,13 @@ exports.uploadToImgur = function(fileId, config, tg, callback) {
         }
 
     }
-    impl().then((imgurLink) => callback(imgurLink)).catch(logger.error);
+    /* On failure impl() resolves to undefined; send nothing rather than an
+     * "undefined" link to IRC. */
+    impl().then((imgurLink) => {
+        if (imgurLink) {
+            callback(imgurLink);
+        }
+    }).catch(logger.error);
 };
 
 function convertWebpToPng(sourceFile, targetFile) {
