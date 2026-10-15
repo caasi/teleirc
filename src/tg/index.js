@@ -50,7 +50,7 @@ var init = function(msgCallback) {
             tg.on('edited_message', recieveMessage);
         }
     }).catch(function(err) {
-      console.error(err);
+        console.error(err);
     });
 
     return {

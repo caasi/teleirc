@@ -18,9 +18,9 @@ module.exports = function(name) {
     hash = Math.abs(hash % config.palette.length);
 
     if (config.colorless) {
-      return c.bold(name);
+        return c.bold(name);
     } else {
-      if (!c[config.palette[hash]]) { return name; }
-      return c[config.palette[hash]](name);
+        if (!c[config.palette[hash]]) { return name; }
+        return c[config.palette[hash]](name);
     }
 };

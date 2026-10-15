@@ -141,12 +141,12 @@ exports.convertMedia = function(filePath, config) {
 
                 return new Promise(function(resolve, reject) {
                     var newFilePath = basename + newSuffix;
-                    var child
+                    var child;
                     // TODO: use `webp-converter`
                     if (suffix === 'webp') {
-                      child = child_process.spawn('dwebp', [filePath, '-o', newFilePath]);
+                        child = child_process.spawn('dwebp', [filePath, '-o', newFilePath]);
                     } else {
-                      child = child_process.spawn('convert', [filePath, newFilePath]);
+                        child = child_process.spawn('convert', [filePath, newFilePath]);
                     }
                     child.on('error', function(err) {
                         logger.error('Failed to run "convert":', err.message);
@@ -182,8 +182,8 @@ var getFilePathById = function(fileId) {
     return new Promise(function(resolve, reject) {
         fs.stat(filePath, function(err, stats) {
             if (err) return reject(err);
-            stats.isFile()
-                ? resolve(filePath)
+            stats.isFile() ?
+                resolve(filePath)
                 : reject('Not a file: ' + filePath);
         });
     });
@@ -206,7 +206,7 @@ exports.serveFile = function(fileId, mimetype, config, tg, callback) {
     .catch(function(err) {
         logger.error(err);
         return tg.downloadFile(fileId, filesPath)
-        .then(function(filePath) { return exports.convertMedia(filePath, config) })
+        .then(function(filePath) { return exports.convertMedia(filePath, config); })
         .then(saveFilePath);
     })
     .then(createFileUrl)
@@ -226,7 +226,7 @@ exports.initHttpServer = function() {
         req.addListener('end', function() {
             // show messages in JSON
             if (req.url.match(/^\/messages\/?$/)) {
-                res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+                res.writeHead(200, {'Content-Type': 'application/json; charset=utf-8'});
                 res.end(JSON.stringify(M.list(), null, 2));
             } else {
                 fileServer.serve(req, res);

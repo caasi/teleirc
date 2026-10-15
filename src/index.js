@@ -35,9 +35,9 @@ if (argv.version) {
 
     var msgCallback = function(message) {
         // append more metadata to the message
-        var id = M.getId(message)
-        message.id = id
-        M.push(message)
+        var id = M.getId(message);
+        message.id = id;
+        M.push(message);
 
         switch (message.protocol) {
             case 'irc':

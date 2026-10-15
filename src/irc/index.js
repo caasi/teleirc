@@ -161,11 +161,11 @@ var init = function(msgCallback) {
         var formatted;
 
         if (config.emNick && config.parseMode === 'markdown') {
-          formatted = '\\* *' + user + '* ' + message.text;
+            formatted = '\\* *' + user + '* ' + message.text;
         } else if (config.emNick && config.parseMode === 'html') {
-          formatted = '* <b>' + user + '</b> ' + message.text;
+            formatted = '* <b>' + user + '</b> ' + message.text;
         } else {
-          formatted = '* ' + user + ' ' + message.text;
+            formatted = '* ' + user + ' ' + message.text;
         }
 
         if (message) {
@@ -346,8 +346,8 @@ var init = function(msgCallback) {
             // show a part of the reply message
             if (message && message.original && message.original.reply_to_message && message.original.reply_to_message.text) {
                 text = message.original.reply_to_message.text.replace(M.NICK_FORMAT, '');
-                if( text.match(/^\s*https?:\/\//) )
-                    message.text += ' <' + ircUtil.parseUrl(text.match(/https?:\/\/\S*/)[0]).url + '>'
+                if (text.match(/^\s*https?:\/\//))
+                    message.text += ' <' + ircUtil.parseUrl(text.match(/https?:\/\/\S*/)[0]).url + '>';
                 else
                     message.text += ' (' + text.substr(0, 10) + '…)';
             }
