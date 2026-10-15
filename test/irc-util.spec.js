@@ -27,6 +27,10 @@ var ircUtil = require('../src/irc/util');
 var cases = require('./parse-url-cases.json');
 
 describe('irc/util parseUrl', function() {
+    after(function() {
+        fs.rmSync(home, {recursive: true, force: true});
+    });
+
     cases.forEach(function(c) {
         it('simplifies ' + c[1].type + ': ' + c[1].url, function() {
             assert.deepStrictEqual(ircUtil.parseUrl(c[0]), c[1]);
