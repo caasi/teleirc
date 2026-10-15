@@ -143,7 +143,7 @@ var init = function(msgCallback) {
                 channel: notice.channel,
                 user: user,
                 text: notice.text,
-                replyTo: message.replyTo
+                replyTo: notice.replyTo
             });
         }
     });
