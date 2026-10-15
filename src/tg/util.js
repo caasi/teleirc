@@ -177,14 +177,20 @@ exports.convertMedia = function(filePath, config) {
 var fileIdPathMap = {};
 var getFilePathById = function(fileId) {
     var filePath = fileIdPathMap[fileId];
-    if (!filePath) return Promise.reject('File not found: ' + fileId);
+    if (!filePath) {
+        return Promise.reject('File not found: ' + fileId);
+    }
 
     return new Promise(function(resolve, reject) {
         fs.stat(filePath, function(err, stats) {
-            if (err) return reject(err);
-            stats.isFile() ?
-                resolve(filePath)
-                : reject('Not a file: ' + filePath);
+            if (err) {
+                return reject(err);
+            }
+            if (stats.isFile()) {
+                resolve(filePath);
+            } else {
+                reject('Not a file: ' + filePath);
+            }
         });
     });
 };
@@ -305,7 +311,9 @@ function formatNick(config, username) {
 exports.formatNick = formatNick;
 
 function commandSay(msg, myUser, tg, callback) {
-    var text, title, channel;
+    var text;
+    var title;
+    var channel;
 
     text = msg.text.split(' ');
     text.shift();

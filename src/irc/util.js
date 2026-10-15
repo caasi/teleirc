@@ -63,23 +63,36 @@ exports.parseTopic = function(chanName, topic, user) {
 
 function buildUrl(protocol, auth, host, pathname, query, hash) {
     var r = protocol + '//';
-    if (auth) r += auth + '@';
+    if (auth) {
+        r += auth + '@';
+    }
     r += host + pathname;
-    if (query) r += '?' + query;
-    if (hash) r += hash;
+    if (query) {
+        r += '?' + query;
+    }
+    if (hash) {
+        r += hash;
+    }
     return r;
 }
 
 // parse and simplify URLs
 exports.parseUrl = function(str) {
-    var match, user, id, query, stripped, k;
+    var match;
+    var user;
+    var id;
+    var query;
+    var stripped;
+    var k;
     var myUrl = url.parse(str);
 
     // remove utm terms
     query = qs.parse(myUrl.query);
     stripped = {};
     for (k in query) {
-        if (k.match(/^utm_/)) continue;
+        if (k.match(/^utm_/)) {
+            continue;
+        }
         stripped[k] = query[k];
     }
     query = stripped;
@@ -89,7 +102,7 @@ exports.parseUrl = function(str) {
         host = myUrl.host.replace(/(?:(?:www\.)|(?:m\.))?facebook/, 'fb');
 
         // pattern: /<fb-id>/photos/<set>/<photo-id>
-        if (match = /\/([^\/]+)\/photos\/[^\/]+\/([^\/]+)/.exec(myUrl.pathname)) {
+        if ((match = /\/([^\/]+)\/photos\/[^\/]+\/([^\/]+)/.exec(myUrl.pathname))) {
             user = match[1] || '';
             id = match[2] || '';
             return {
@@ -134,7 +147,7 @@ exports.parseUrl = function(str) {
         }
 
         // pattern: (pg/)<id>/photos/?tab=album&album_id=<album_id>
-        if (match = myUrl.pathname.match(/(?:\/pg)?\/([^\/]+)\/photos/)) {
+        if ((match = myUrl.pathname.match(/(?:\/pg)?\/([^\/]+)\/photos/))) {
             user = match[1] || '';
             stripped = {
                 tab: 'album',
@@ -142,12 +155,13 @@ exports.parseUrl = function(str) {
             };
             return {
                 type: 'fb-album',
-                url: buildUrl(myUrl.protocol, '', host, '/' + user + '/photos/', qs.stringify(stripped))
+                url: buildUrl(myUrl.protocol, '', host, '/' + user + '/photos/',
+                              qs.stringify(stripped))
             };
         }
 
         // pattern: groups/<fbid>/permalink/<id>/
-        if (match = myUrl.pathname.match(/groups\//)) {
+        if ((match = myUrl.pathname.match(/groups\//))) {
             return {
                 type: 'fb-group-post',
                 // remove the query string
@@ -156,7 +170,7 @@ exports.parseUrl = function(str) {
         }
 
         // pattern: /notes/guardian-angel/<title>/<id>/
-        if (match = myUrl.pathname.match(/notes\/([^\/]+)\/[^\/]+\/(\d+)/)) {
+        if ((match = myUrl.pathname.match(/notes\/([^\/]+)\/[^\/]+\/(\d+)/))) {
             user = match[1] || '';
             id = match[2] || '';
             return {
@@ -168,7 +182,7 @@ exports.parseUrl = function(str) {
 
     if (myUrl.hostname.indexOf('medium.com') !== -1) {
         // pattern: <id>/<whatever>-<article_id in hex>
-        if (match = myUrl.pathname.match(/([^\/]+)\/[^\/]+-([0-9a-f]+)$/)) {
+        if ((match = myUrl.pathname.match(/([^\/]+)\/[^\/]+-([0-9a-f]+)$/))) {
             user = match[1] || '';
             id = match[2] || '';
             return {
@@ -180,7 +194,7 @@ exports.parseUrl = function(str) {
 
     if (myUrl.hostname.indexOf('pixnet.net') !== -1) {
         // pattern: <user>.pixnet.net/blog/post/42599684-<title>
-        if (match = myUrl.pathname.match(/blog\/post\/(\d+)/)) {
+        if ((match = myUrl.pathname.match(/blog\/post\/(\d+)/))) {
             id = match[1] || '';
             return {
                 type: 'pixnet',
@@ -191,7 +205,7 @@ exports.parseUrl = function(str) {
 
     if (myUrl.hostname.indexOf('news.gamme.com.tw') !== -1) {
         // pattern: news.gamme.com.tw/<title>-<article_id>
-        if (match = myUrl.pathname.match(/-(\d+)$/)) {
+        if ((match = myUrl.pathname.match(/-(\d+)$/))) {
             id = match[1] || '';
             return {
                 type: 'gamme',
@@ -202,7 +216,8 @@ exports.parseUrl = function(str) {
 
     return {
         type: 'url',
-        url: buildUrl(myUrl.protocol, myUrl.auth, myUrl.host, myUrl.pathname, qs.stringify(query), myUrl.hash)
+        url: buildUrl(myUrl.protocol, myUrl.auth, myUrl.host, myUrl.pathname,
+                      qs.stringify(query), myUrl.hash)
     };
 };
 
