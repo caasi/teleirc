@@ -57,12 +57,12 @@ exports.uploadToImgur = function(fileId, config, tg, callback) {
 
                 /* Not waiting for this write, because it doesn't matter when it
                 * finishes. */
-                fs.writeJson(linkCacheFilePath, [...linkCache]);
+                fs.writeJson(linkCacheFilePath, [...linkCache]).catch(logger.error);
             }
             const imgurLink = linkCache.get(md5Hash);
 
             /* Cleanup. Not waiting for this. */
-            fs.remove(downloadDirPath);
+            fs.remove(downloadDirPath).catch(logger.error);
 
             return imgurLink;
 
@@ -71,7 +71,7 @@ exports.uploadToImgur = function(fileId, config, tg, callback) {
         }
 
     }
-    impl().then((imgurLink) => callback(imgurLink));
+    impl().then((imgurLink) => callback(imgurLink)).catch(logger.error);
 };
 
 function convertWebpToPng(sourceFile, targetFile) {
