@@ -76,7 +76,8 @@ describe('irc/index', function() {
             port: config.ircOptions.port,
             ircNick: config.ircNick,
             ircPerformCmds: config.ircPerformCmds,
-            channels: config.channels
+            channels: config.channels,
+            relayIRCEvents: config.relayIRCEvents
         };
     });
 
@@ -89,6 +90,7 @@ describe('irc/index', function() {
     });
 
     afterEach(function() {
+        config.relayIRCEvents = saved.relayIRCEvents;
         if (server) {
             server.stop();
         }
@@ -113,6 +115,23 @@ describe('irc/index', function() {
         ], function(message) {
             assert.strictEqual(message.text, 'still here');
             done();
+        });
+    });
+
+    it('ignores join, part and kick in a channel that is not bridged (issue #12)', function(done) {
+        config.relayIRCEvents = ['notice', 'join', 'part', 'kick'];
+        server = startBridge([
+            ':erin!e@h JOIN #other',
+            ':erin!e@h PART #other',
+            ':op!o@h KICK #other someone :bye',
+            ':erin!e@h NOTICE #chan :still here'
+        ], function(message) {
+            // The JOIN of the bot to #chan is relayed too, so check the
+            // fault itself: a relayed message with no channel.
+            assert.ok(message.channel, 'no channel: ' + message.text);
+            if (message.text === 'still here') {
+                done();
+            }
         });
     });
 });

@@ -227,6 +227,9 @@ var init = function(msgCallback) {
         var text = '';
 
         var channel = ircUtil.lookupChannel(chanName, config.channels);
+        if (!channel) {
+            return;
+        }
         msgCallback({
             original: {
                 chanName: chanName,
@@ -251,6 +254,9 @@ var init = function(msgCallback) {
         var text = '';
 
         var channel = ircUtil.lookupChannel(chanName, config.channels);
+        if (!channel) {
+            return;
+        }
         msgCallback({
             original: {
                 chanName: chanName,
@@ -276,6 +282,9 @@ var init = function(msgCallback) {
         var reason = event.message;
 
         var channel = ircUtil.lookupChannel(chanName, config.channels);
+        if (!channel) {
+            return;
+        }
         msgCallback({
             original: {
                 chanName: chanName,
