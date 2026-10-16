@@ -7,8 +7,9 @@ require('./helpers/sandbox');
 var config = require('../src/config');
 var M = require('../src/message');
 
-// A fake tgfancy. Like the Bot API, sendMessage rejects a text that the
-// parse mode cannot read: in html mode, any '<' that does not start <b> or </b>.
+// A fake tgfancy. It models two rules of the Bot API, and no other rule. In
+// html mode it rejects any '<' that does not start <b> or </b>; it does not
+// check entities or other tags.
 // rejectNext makes it reject one text in any mode. Only message 42 exists:
 // a reply to another message is rejected, unless allow_sending_without_reply.
 var sent = [];
@@ -31,6 +32,8 @@ FakeTelegram.prototype.sendMessage = function(chatId, text, options) {
     }
     return Promise.resolve({});
 };
+// src/tg/index.js must load after this line, so that it gets the fake. No
+// spec that runs before this file loads src/tg/index.js or src/index.js.
 require.cache[require.resolve('tgfancy')] = {
     id: require.resolve('tgfancy'),
     filename: require.resolve('tgfancy'),
@@ -61,18 +64,16 @@ describe('tg/index send a reply (#9)', function() {
         config.parseMode = saved.parseMode;
         config.emNick = saved.emNick;
         config.showMedia = saved.showMedia;
+        // A require inside a test or hook of a later spec gets the real
+        // tgfancy. A top-level require in a later spec file still gets the
+        // fake, because mocha loads every file before it runs any hook.
+        delete require.cache[require.resolve('../src/tg/index')];
+        delete require.cache[require.resolve('tgfancy')];
     });
 
-    // Wait for the fallback, which runs after the rejection.
-    function wait() {
-        return new Promise(function(resolve) {
-            setTimeout(resolve, 10);
-        });
-    }
-
+    // send() returns the promise of the last sendMessage, the fallback too.
     function send(text) {
-        tg.send({channel: channel, user: 'Alvin', text: text, replyTo: 'abcd'});
-        return wait();
+        return tg.send({channel: channel, user: 'Alvin', text: text, replyTo: 'abcd'});
     }
 
     it('escapes the IRC text in html mode', function() {
@@ -122,8 +123,8 @@ describe('tg/index send a reply (#9)', function() {
 
     it('sends the text when the message of the reply is gone', function() {
         config.parseMode = 'html';
-        tg.send({channel: channel, user: 'Alvin', text: 'hi $dead', replyTo: 'dead'});
-        return wait().then(function() {
+        var message = {channel: channel, user: 'Alvin', text: 'hi $dead', replyTo: 'dead'};
+        return tg.send(message).then(function() {
             assert.strictEqual(sent.length, 1);
             assert.strictEqual(sent[0].options.reply_to_message_id, 7);
         });

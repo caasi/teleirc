@@ -113,7 +113,7 @@ var init = function(msgCallback) {
             }
 
             logger.verbose('>> relaying to TG:', text);
-            tg.sendMessage(
+            return tg.sendMessage(
                 message.channel.tgChatId,
                 tgUtil.stripIrcCodes(text),
                 {
@@ -132,6 +132,9 @@ var init = function(msgCallback) {
                         // can be gone. Send the text without the reply then.
                         allow_sending_without_reply: true
                     });
+                })
+                .catch(function(err) {
+                    logger.error('fallback failed too:', err);
                 });
         }
     };
