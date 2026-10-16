@@ -9,7 +9,8 @@ var M = require('../src/message');
 
 // A fake tgfancy. Like the Bot API, sendMessage rejects a text that the
 // parse mode cannot read: in html mode, any '<' that does not start <b> or </b>.
-// rejectNext makes it reject one text in any mode.
+// rejectNext makes it reject one text in any mode. Only message 42 exists:
+// a reply to another message is rejected, unless allow_sending_without_reply.
 var sent = [];
 var rejectNext = false;
 function FakeTelegram() {}
@@ -20,6 +21,10 @@ FakeTelegram.prototype.on = function() {};
 FakeTelegram.prototype.sendMessage = function(chatId, text, options) {
     sent.push({text: text, options: options || {}});
     var html = options && options.parse_mode === 'html';
+    var reply = options && options.reply_to_message_id;
+    if (reply && reply !== 42 && !options.allow_sending_without_reply) {
+        return Promise.reject(new Error('Bad Request: message to be replied not found'));
+    }
     if (rejectNext || (html && /</.test(text.replace(/<\/?b>/g, '')))) {
         rejectNext = false;
         return Promise.reject(new Error('Bad Request: can not parse entities'));
@@ -45,6 +50,7 @@ describe('tg/index send a reply (#9)', function() {
         config.showMedia = false;
         tg = tgInit(function() {});
         M.push({id: 'abcd', original: {message_id: 42}});
+        M.push({id: 'dead', original: {message_id: 7}});
     });
 
     beforeEach(function() {
@@ -57,12 +63,16 @@ describe('tg/index send a reply (#9)', function() {
         config.showMedia = saved.showMedia;
     });
 
-    function send(text) {
-        tg.send({channel: channel, user: 'Alvin', text: text, replyTo: 'abcd'});
-        // Wait for the fallback, which runs after the rejection.
+    // Wait for the fallback, which runs after the rejection.
+    function wait() {
         return new Promise(function(resolve) {
             setTimeout(resolve, 10);
         });
+    }
+
+    function send(text) {
+        tg.send({channel: channel, user: 'Alvin', text: text, replyTo: 'abcd'});
+        return wait();
     }
 
     it('escapes the IRC text in html mode', function() {
@@ -108,6 +118,15 @@ describe('tg/index send a reply (#9)', function() {
         tg.send({channel: channel, text: 'Topic: a <b> c'});
         assert.deepStrictEqual(sent.map(function(s) { return s.text; }),
                                ['Topic: a &lt;b&gt; c']);
+    });
+
+    it('sends the text when the message of the reply is gone', function() {
+        config.parseMode = 'html';
+        tg.send({channel: channel, user: 'Alvin', text: 'hi $dead', replyTo: 'dead'});
+        return wait().then(function() {
+            assert.strictEqual(sent.length, 1);
+            assert.strictEqual(sent[0].options.reply_to_message_id, 7);
+        });
     });
 
     it('keeps the reply when Telegram rejects the text', function() {

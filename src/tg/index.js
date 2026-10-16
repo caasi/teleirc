@@ -118,7 +118,8 @@ var init = function(msgCallback) {
                 tgUtil.stripIrcCodes(text),
                 {
                     parse_mode: parseMode,
-                    reply_to_message_id: replyId
+                    reply_to_message_id: replyId,
+                    allow_sending_without_reply: true
                 }
             )
                 .catch(function(err) {
@@ -126,7 +127,10 @@ var init = function(msgCallback) {
                     // resend
                     logger.verbose('>> fallback to plain text');
                     return tg.sendMessage(message.channel.tgChatId, fallbackText, {
-                        reply_to_message_id: replyId
+                        reply_to_message_id: replyId,
+                        // messages.json never forgets an id, so the message
+                        // can be gone. Send the text without the reply then.
+                        allow_sending_without_reply: true
                     });
                 });
         }
