@@ -53,3 +53,15 @@ describe('tg/util getIRCName', function() {
         }), {numRuns: 2000});
     });
 });
+
+describe('message NICK_FORMAT', function() {
+    var M = require('../src/message');
+
+    it('removes the nick prefix of a bot message', function() {
+        assert.strictEqual('<_13h> a > b'.replace(M.NICK_FORMAT, ''), 'a > b');
+    });
+
+    it('keeps a prefix that is not a nick', function() {
+        assert.strictEqual('<a b> c'.replace(M.NICK_FORMAT, ''), '<a b> c');
+    });
+});
