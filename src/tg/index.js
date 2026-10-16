@@ -80,30 +80,42 @@ var init = function(msgCallback) {
                 parseMode = undefined;
             }
 
-            var fallbackText = tgUtil.stripIrcCodes(message.text) || '';
-            if (message.user) {
-                var nick;
-
-                // save the message to fallback to plain text
-                fallbackText = '<' + message.user + '> ' + message.text;
-
-                nick = tgUtil.formatNick(config, message.user);
-                message.text = nick + ' ' + message.text;
-
-                if (parseMode === 'markdown') {
-                    message.text = tgUtil.fixMarkdown(message.text);
-                }
+            // The text of every message is plain text. Markup is added here and
+            // only here, after the escape, so no text can break the parse mode.
+            // message.text is not changed: a broadcast sends it to IRC too.
+            // An action (type 'action') gives its nick in message.original.user.
+            var text = message.text;
+            var fallbackText = tgUtil.stripIrcCodes(text);
+            if (parseMode === 'html') {
+                text = tgUtil.escapeHtml(text);
             }
 
             var replyId = M.get(message.replyTo);
             if (replyId) {
-                message.text = message.text.replace(M.ID_FORMAT, '');
+                text = text.replace(M.ID_FORMAT, '');
+                fallbackText = fallbackText.replace(M.ID_FORMAT, '');
             }
 
-            logger.verbose('>> relaying to TG:', message.text);
+            if (message.type === 'action') {
+                fallbackText = '* ' + message.original.user + ' ' + fallbackText;
+                text = tgUtil.formatAction(config, message.original.user) + ' ' + text;
+            } else if (message.user) {
+                fallbackText = '<' + message.user + '> ' + fallbackText;
+                text = tgUtil.formatNick(config, message.user) + ' ' + text;
+            }
+
+            // ponytail: fixMarkdown also sees the prefix, so a nick with '_'
+            // breaks the bold of "*nick*" and Telegram shows the asterisks.
+            // Production uses html. For markdown, fix the text before the prefix,
+            // after a check of how the Bot API reads '_' in bold.
+            if (parseMode === 'markdown') {
+                text = tgUtil.fixMarkdown(text);
+            }
+
+            logger.verbose('>> relaying to TG:', text);
             tg.sendMessage(
                 message.channel.tgChatId,
-                tgUtil.stripIrcCodes(message.text),
+                tgUtil.stripIrcCodes(text),
                 {
                     parse_mode: parseMode,
                     reply_to_message_id: replyId
@@ -113,7 +125,9 @@ var init = function(msgCallback) {
                     logger.error(err);
                     // resend
                     logger.verbose('>> fallback to plain text');
-                    return tg.sendMessage(message.channel.tgChatId, fallbackText);
+                    return tg.sendMessage(message.channel.tgChatId, fallbackText, {
+                        reply_to_message_id: replyId
+                    });
                 });
         }
     };

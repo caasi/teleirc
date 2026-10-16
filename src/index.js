@@ -76,7 +76,6 @@ if (argv.version) {
                     }
                 } else if (message.cmd === 'broadcast') {
                     message.text = message.text + ' (Bot Broadcast)';
-                    // TODO: escape Telegram messages and IRC messages here
                     tg.send(message);
                     irc.send(message);
                     return;

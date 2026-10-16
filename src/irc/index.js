@@ -158,17 +158,8 @@ var init = function(msgCallback) {
         var text = event.message;
 
         var message = ircUtil.parseMsg(chanName, text);
-        var formatted;
 
         if (message) {
-            if (config.emNick && config.parseMode === 'markdown') {
-                formatted = '\\* *' + user + '* ' + message.text;
-            } else if (config.emNick && config.parseMode === 'html') {
-                formatted = '* <b>' + user + '</b> ' + message.text;
-            } else {
-                formatted = '* ' + user + ' ' + message.text;
-            }
-
             var messageText = user + ': ' + message.text;
             if (config.emphasizeAction) {
                 messageText = '* ' + messageText + ' *';
@@ -184,7 +175,7 @@ var init = function(msgCallback) {
                 type: 'action',
                 channel: message.channel,
                 user: null,
-                text: formatted,
+                text: message.text,
                 replyTo: message.replyTo
             });
         }

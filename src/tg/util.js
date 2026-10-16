@@ -307,10 +307,28 @@ function formatNick(config, username) {
         }
     }
 
+    if (config.parseMode === 'html') {
+        return '&lt;' + username + '&gt;';
+    }
     return '<' + username + '>';
 }
 
 exports.formatNick = formatNick;
+
+exports.formatAction = function(config, username) {
+    if (config.emNick && config.parseMode === 'markdown') {
+        return '\\* *' + username + '*';
+    }
+    if (config.emNick && config.parseMode === 'html') {
+        return '* <b>' + username + '</b>';
+    }
+    return '* ' + username;
+};
+
+// The Bot API docs require '<', '>' and '&' as entities in html mode.
+exports.escapeHtml = function(text) {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+};
 
 function commandSay(msg, myUser, tg, callback) {
     var text;
@@ -322,10 +340,6 @@ function commandSay(msg, myUser, tg, callback) {
     title = text.shift();
     channel = Chan.findByChannel(config.channels, title);
     text = text.join(' ');
-
-    if (config.parseMode === 'html') {
-        text = text.replace(/</g, '&lt;');
-    }
 
     if (!channel) {
         logger.verbose('channel not found:', channel);

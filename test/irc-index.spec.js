@@ -77,7 +77,9 @@ describe('irc/index', function() {
             ircNick: config.ircNick,
             ircPerformCmds: config.ircPerformCmds,
             channels: config.channels,
-            relayIRCEvents: config.relayIRCEvents
+            relayIRCEvents: config.relayIRCEvents,
+            parseMode: config.parseMode,
+            emNick: config.emNick
         };
     });
 
@@ -91,6 +93,8 @@ describe('irc/index', function() {
 
     afterEach(function() {
         config.relayIRCEvents = saved.relayIRCEvents;
+        config.parseMode = saved.parseMode;
+        config.emNick = saved.emNick;
         if (server) {
             server.stop();
         }
@@ -116,6 +120,19 @@ describe('irc/index', function() {
             assert.strictEqual(message.text, 'still here');
             done();
         });
+    });
+
+    it('relays an action as plain text, also in html mode (#9)', function(done) {
+        // tg/index.js adds the markup and the escape for Telegram.
+        config.parseMode = 'html';
+        config.emNick = true;
+        server = startBridge([':erin!e@h PRIVMSG #chan :\x01ACTION a < b & c\x01'],
+            function(message) {
+                assert.strictEqual(message.type, 'action');
+                assert.strictEqual(message.original.user, 'erin');
+                assert.strictEqual(message.text, 'a < b & c');
+                done();
+            });
     });
 
     it('ignores join, part, kick and WHO for an unbridged channel (#12)', function(done) {
