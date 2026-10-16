@@ -344,6 +344,11 @@ var isMedia = function(msg) {
         msg.video || msg.voice || msg.contact || msg.location);
 };
 
+// Telegram lets a user add a caption to any media.
+var withCaption = function(url, msg) {
+    return url + (msg.caption ? ' ' + msg.caption : '');
+};
+
 exports.parseMsg = function(msg, myUser, tg, callback) {
     var channel;
     // TODO: Telegram code should not have to deal with IRC channels at all
@@ -512,14 +517,15 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
         exports.serveFile(msg.audio.file_id, msg.audio.mime_type, config, tg, function(url) {
             callback({
                 channel: channel,
-                text: prefix + '(Audio, ' + msg.audio.duration + 's)' + url
+                text: prefix + '(Audio, ' + msg.audio.duration + 's) ' +
+                    withCaption(url, msg)
             });
         });
     } else if (msg.document) {
         exports.serveFile(msg.document.file_id, msg.document.mime_type, config, tg, function(url) {
             callback({
                 channel: channel,
-                text: prefix + '(Document) ' + url
+                text: prefix + '(Document) ' + withCaption(url, msg)
             });
         });
     } else if (msg.photo) {
@@ -530,7 +536,7 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
                 callback({
                     channel: channel,
                     text: prefix + '(Photo, ' + photo.width + 'x' + photo.height + ') ' +
-                    url + (msg.caption ? ' ' + msg.caption : '')
+                    withCaption(url, msg)
                 });
             });
         } else {
@@ -542,7 +548,7 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
                     callback({
                         channel: channel,
                         text: prefix + '(Photo, ' + photo.width + 'x' + photo.height + ') ' +
-                        url + (msg.caption ? ' ' + msg.caption : '')
+                        withCaption(url, msg)
                     });
                 }
             );
@@ -594,14 +600,15 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
             callback({
                 channel: channel,
                 text: prefix + '(Video, ' + msg.video.duration + 's) ' +
-                    url + (msg.caption ? ' ' + msg.caption : '')
+                    withCaption(url, msg)
             });
         });
     } else if (msg.voice) {
         exports.serveFile(msg.voice.file_id, msg.voice.mime_type, config, tg, function(url) {
             callback({
                 channel: channel,
-                text: prefix + '(Voice, ' + msg.voice.duration + 's) ' + url
+                text: prefix + '(Voice, ' + msg.voice.duration + 's) ' +
+                    withCaption(url, msg)
             });
         });
     } else if (msg.contact) {

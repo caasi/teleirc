@@ -65,3 +65,52 @@ describe('message NICK_FORMAT', function() {
         assert.strictEqual('<a b> c'.replace(M.NICK_FORMAT, ''), '<a b> c');
     });
 });
+
+describe('tg/util parseMsg media caption (#8)', function() {
+    var saved;
+
+    before(function() {
+        saved = {
+            channels: config.channels,
+            showMedia: config.showMedia,
+            serveFile: tgUtil.serveFile
+        };
+        config.channels = [{ircChan: '#chan', tgGroup: 'TestGroup', tgChatId: 1}];
+        config.showMedia = true;
+        tgUtil.serveFile = function(fileId, mimetype, config, tg, callback) {
+            callback('http://files/' + fileId);
+        };
+    });
+
+    after(function() {
+        config.channels = saved.channels;
+        config.showMedia = saved.showMedia;
+        tgUtil.serveFile = saved.serveFile;
+    });
+
+    function relay(media) {
+        var msg = {
+            chat: {id: 1, type: 'group', title: 'TestGroup'},
+            from: {id: 2, username: 'alice'},
+            date: Math.floor(Date.now() / 1000),
+            caption: 'look'
+        };
+        Object.keys(media).forEach(function(key) {
+            msg[key] = media[key];
+        });
+        var text;
+        tgUtil.parseMsg(msg, {}, null, function(message) {
+            text = tgUtil.stripIrcCodes(message.text);
+        });
+        return text;
+    }
+
+    it('adds the caption to audio, document and voice', function() {
+        assert.strictEqual(relay({audio: {file_id: 'a', duration: 3}}),
+                           '<alice> (Audio, 3s) http://files/a look');
+        assert.strictEqual(relay({document: {file_id: 'd'}}),
+                           '<alice> (Document) http://files/d look');
+        assert.strictEqual(relay({voice: {file_id: 'v', duration: 5}}),
+                           '<alice> (Voice, 5s) http://files/v look');
+    });
+});
