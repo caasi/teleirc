@@ -307,10 +307,28 @@ function formatNick(config, username) {
         }
     }
 
+    if (config.parseMode === 'html') {
+        return '&lt;' + username + '&gt;';
+    }
     return '<' + username + '>';
 }
 
 exports.formatNick = formatNick;
+
+exports.formatAction = function(config, username) {
+    if (config.emNick && config.parseMode === 'markdown') {
+        return '\\* *' + username + '*';
+    }
+    if (config.emNick && config.parseMode === 'html') {
+        return '* <b>' + username + '</b>';
+    }
+    return '* ' + username;
+};
+
+// The Bot API docs require '<', '>' and '&' as entities in html mode.
+exports.escapeHtml = function(text) {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+};
 
 function commandSay(msg, myUser, tg, callback) {
     var text;
@@ -322,10 +340,6 @@ function commandSay(msg, myUser, tg, callback) {
     title = text.shift();
     channel = Chan.findByChannel(config.channels, title);
     text = text.join(' ');
-
-    if (config.parseMode === 'html') {
-        text = text.replace(/</g, '&lt;');
-    }
 
     if (!channel) {
         logger.verbose('channel not found:', channel);
@@ -342,6 +356,11 @@ function commandSay(msg, myUser, tg, callback) {
 var isMedia = function(msg) {
     return Boolean(msg.audio || msg.document || msg.photo || msg.sticker ||
         msg.video || msg.voice || msg.contact || msg.location);
+};
+
+// Telegram lets a user add a caption to any media.
+var withCaption = function(url, msg) {
+    return url + (msg.caption ? ' ' + msg.caption : '');
 };
 
 exports.parseMsg = function(msg, myUser, tg, callback) {
@@ -512,14 +531,15 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
         exports.serveFile(msg.audio.file_id, msg.audio.mime_type, config, tg, function(url) {
             callback({
                 channel: channel,
-                text: prefix + '(Audio, ' + msg.audio.duration + 's)' + url
+                text: prefix + '(Audio, ' + msg.audio.duration + 's) ' +
+                    withCaption(url, msg)
             });
         });
     } else if (msg.document) {
         exports.serveFile(msg.document.file_id, msg.document.mime_type, config, tg, function(url) {
             callback({
                 channel: channel,
-                text: prefix + '(Document) ' + url
+                text: prefix + '(Document) ' + withCaption(url, msg)
             });
         });
     } else if (msg.photo) {
@@ -530,7 +550,7 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
                 callback({
                     channel: channel,
                     text: prefix + '(Photo, ' + photo.width + 'x' + photo.height + ') ' +
-                    url + (msg.caption ? ' ' + msg.caption : '')
+                    withCaption(url, msg)
                 });
             });
         } else {
@@ -542,7 +562,7 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
                     callback({
                         channel: channel,
                         text: prefix + '(Photo, ' + photo.width + 'x' + photo.height + ') ' +
-                        url + (msg.caption ? ' ' + msg.caption : '')
+                        withCaption(url, msg)
                     });
                 }
             );
@@ -594,14 +614,15 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
             callback({
                 channel: channel,
                 text: prefix + '(Video, ' + msg.video.duration + 's) ' +
-                    url + (msg.caption ? ' ' + msg.caption : '')
+                    withCaption(url, msg)
             });
         });
     } else if (msg.voice) {
         exports.serveFile(msg.voice.file_id, msg.voice.mime_type, config, tg, function(url) {
             callback({
                 channel: channel,
-                text: prefix + '(Voice, ' + msg.voice.duration + 's) ' + url
+                text: prefix + '(Voice, ' + msg.voice.duration + 's) ' +
+                    withCaption(url, msg)
             });
         });
     } else if (msg.contact) {
