@@ -118,12 +118,13 @@ describe('irc/index', function() {
         });
     });
 
-    it('ignores join, part and kick in a channel that is not bridged (issue #12)', function(done) {
+    it('ignores join, part, kick and WHO for an unbridged channel (#12)', function(done) {
         config.relayIRCEvents = ['notice', 'join', 'part', 'kick'];
         server = startBridge([
             ':erin!e@h JOIN #other',
             ':erin!e@h PART #other',
             ':op!o@h KICK #other someone :bye',
+            ':srv 315 bot #other :End of WHO list',
             ':erin!e@h NOTICE #chan :still here'
         ], function(message) {
             // The JOIN of the bot to #chan is relayed too, so check the

@@ -309,6 +309,11 @@ var init = function(msgCallback) {
     // method to return nicklist
     nodeIrc.on('wholist', function(event) {
         var channel = ircUtil.lookupChannel(event.target, config.channels);
+        // irc-framework emits wholist for every end of a WHO reply, also for
+        // a WHO that the bot did not send for a bridged channel.
+        if (!channel) {
+            return;
+        }
         var users = event.users.reduce(function(usersStr, user) {
             if (usersStr === '') {
                 return user.nick;
