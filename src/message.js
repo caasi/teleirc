@@ -14,7 +14,8 @@ var messagesFile = path.join(messagesPath, 'messages.json');
  * So the application can lookup past messages for later use.
  **/
 var ID_FORMAT = /\s\$([a-f0-9]{4})/;
-var NICK_FORMAT = /^<[^>]+>\s*/;
+// Same nick grammar as getIRCName in tg/util.js: no '>' and no white space.
+var NICK_FORMAT = /^<[^>\s]+>\s*/;
 var SAVE_INTERVAL = 30000;
 
 var messageMap;
