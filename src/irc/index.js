@@ -356,7 +356,7 @@ var init = function(msgCallback) {
                     message.text += ' <' +
                         ircUtil.parseUrl(text.match(/https?:\/\/\S*/)[0]).url + '>';
                 } else {
-                    message.text += ' (' + text.substr(0, 10) + '…)';
+                    message.text += ' (' + M.snippet(text, 10, '…') + ')';
                 }
             }
 

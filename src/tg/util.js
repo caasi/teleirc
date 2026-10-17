@@ -535,12 +535,7 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
                 truncatedMessage = exports.getName(replyMsg.left_chat_participant,
                     config) + ' was removed by: ' + exports.getName(msg.from, config);
             } else if (replyMsg.text) {
-                truncatedMessage = replyMsg.text
-                                   .substr(0, config.replySnippetLength)
-                                   .trim();
-                if (truncatedMessage.length < replyMsg.text.length) {
-                    truncatedMessage = truncatedMessage + ' …';
-                }
+                truncatedMessage = M.snippet(replyMsg.text, config.replySnippetLength, ' …');
             } else {
                 truncatedMessage = '<reply to unk>';
             }

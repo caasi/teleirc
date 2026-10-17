@@ -61,6 +61,17 @@ describe('message NICK_FORMAT', function() {
         assert.strictEqual('<_13h> a > b'.replace(M.NICK_FORMAT, ''), 'a > b');
     });
 
+    it('cuts a snippet between characters, not inside an emoji', function() {
+        assert.strictEqual(M.snippet('hi 😀😀😀😀😀😀😀😀', 10, '…'), 'hi 😀😀😀😀😀😀😀…');
+        assert.strictEqual(M.snippet('😀😀', 1, ' …'), '😀 …');
+    });
+
+    it('adds the ellipsis only when the cut removes characters', function() {
+        assert.strictEqual(M.snippet('hi        ', 10, '…'), 'hi');
+        assert.strictEqual(M.snippet('hi', 10, '…'), 'hi');
+        assert.strictEqual(M.snippet('hello world', 10, '…'), 'hello worl…');
+    });
+
     it('keeps a prefix that is not a nick', function() {
         assert.strictEqual('<a b> c'.replace(M.NICK_FORMAT, ''), '<a b> c');
     });

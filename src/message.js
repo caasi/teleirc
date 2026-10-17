@@ -69,13 +69,18 @@ var SNIPPET_LENGTH = 10;
 var sentMap = {};
 var sentKeys = [];
 
+// The first characters of a text, for a line that quotes it. Array.from
+// counts code points, so the cut does not split a surrogate pair. ellipsis
+// is added only when the cut removes characters.
+function snippet(text, length, ellipsis) {
+    var chars = Array.from(text);
+    var cut = chars.slice(0, length).join('').trim();
+    return chars.length > length ? cut + ellipsis : cut;
+}
+
 function pushSent(chatId, tgId, nick, text) {
     var key = chatId + ':' + tgId;
-    var snippet = text.substr(0, SNIPPET_LENGTH).trim();
-    if (snippet.length < text.length) {
-        snippet += '…';
-    }
-    sentMap[key] = {nick: nick, snippet: snippet};
+    sentMap[key] = {nick: nick, snippet: snippet(text, SNIPPET_LENGTH, '…')};
     sentKeys.push(key);
     if (sentKeys.length > SENT_LIMIT) {
         delete sentMap[sentKeys.shift()];
@@ -100,6 +105,7 @@ module.exports = {
     getId: getId,
     push: push,
     idOf: idOf,
+    snippet: snippet,
     pushSent: pushSent,
     sentOf: sentOf,
     list: list,
