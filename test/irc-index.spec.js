@@ -32,6 +32,8 @@ function fakeIrcServer(linesAfterJoin, done) {
                 } else if (command === 'USER') {
                     send(':srv 001 bot :Welcome');
                     send(':srv 376 bot :End of MOTD');
+                } else if (command === 'PRIVMSG' && server.onPrivmsg) {
+                    server.onPrivmsg(line);
                 } else if (command === 'JOIN') {
                     send(':bot!b@h JOIN ' + line.split(' ')[1]);
                     linesAfterJoin.forEach(send);
@@ -54,14 +56,15 @@ function fakeIrcServer(linesAfterJoin, done) {
 // Points the bridge at the fake server, starts it, and calls onMessage for
 // each message that it relays.
 function startBridge(linesAfterJoin, onMessage) {
-    return fakeIrcServer(linesAfterJoin, function(port) {
+    var server = fakeIrcServer(linesAfterJoin, function(port) {
         config.ircServer = '127.0.0.1';
         config.ircOptions.port = port;
         config.ircNick = 'bot';
         config.ircPerformCmds = [];
         config.channels = [{ircChan: '#chan', tgGroup: 'TestGroup'}];
-        ircInit(onMessage);
+        server.irc = ircInit(onMessage);
     });
+    return server;
 }
 
 describe('irc/index', function() {
@@ -151,5 +154,29 @@ describe('irc/index', function() {
                 done();
             }
         });
+    });
+
+    it('sends a reaction without a reply id of its own (#10)', function(done) {
+        var lines = [];
+        server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
+            if (message.text !== 'ready') {
+                return;
+            }
+            var channel = config.channels[0];
+            var reaction = '<alice> reacted 👍 to $beef';
+            server.irc.send({protocol: 'tg', channel: channel, id: 'f00d',
+                type: 'reaction', text: reaction});
+            server.irc.send({protocol: 'tg', channel: channel, id: 'cafe', text: '<alice> hi'});
+        });
+        server.onPrivmsg = function(line) {
+            lines.push(line);
+            if (lines.length === 2) {
+                assert.deepStrictEqual(lines, [
+                    'PRIVMSG #chan :<alice> reacted 👍 to $beef',
+                    'PRIVMSG #chan :<alice> hi $cafe'
+                ]);
+                done();
+            }
+        };
     });
 });

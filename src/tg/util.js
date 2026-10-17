@@ -363,6 +363,56 @@ var withCaption = function(url, msg) {
     return url + (msg.caption ? ' ' + msg.caption : '');
 };
 
+// The bot relays only the emoji that a reaction update adds. A removed
+// reaction, a custom emoji and a paid reaction stay on Telegram. IRC users
+// know a message from Telegram by its $id, and a message from IRC by its
+// nick and first words. A reaction to any other message is not relayed.
+exports.parseReaction = function(reaction, callback) {
+    var channel = Chan.findByGroup(config.channels, reaction.chat.title);
+    // sentOf knows the chat, and idOf does not, so sentOf goes first.
+    var sent = M.sentOf(reaction.chat.id, reaction.message_id);
+    var id = !sent && M.idOf(reaction.message_id);
+    var target = sent ? sent.nick + ': ' + sent.snippet : id && '$' + id;
+    var age = Math.floor(Date.now() / 1000) - reaction.date;
+    // At log level verbose, these lines tell a dropped reaction from an
+    // update that never came (for example, when the bot is no administrator).
+    if (!channel) {
+        logger.verbose('reaction in a group that is not in config: "' +
+                       reaction.chat.title + '", dropping it...');
+        return callback();
+    } else if (!target) {
+        logger.verbose('reaction to message ' + reaction.message_id +
+                       ', which IRC does not know, dropping it...');
+        return callback();
+    } else if (config.maxMsgAge && age > config.maxMsgAge) {
+        logger.verbose('skipping a reaction ' + age + ' seconds old');
+        return callback();
+    }
+
+    var emojiOf = function(r) {
+        return r.type === 'emoji' ? r.emoji : null;
+    };
+    var old = (reaction.old_reaction || []).map(emojiOf);
+    var added = (reaction.new_reaction || []).map(emojiOf).filter(function(e) {
+        return e && old.indexOf(e) < 0;
+    });
+    if (!added.length) {
+        return callback();
+    }
+
+    // An anonymous admin reacts as the chat: actor_chat and no user.
+    var prefix = '';
+    if (!config.soloUse) {
+        prefix = '<' + exports.getName(reaction.user || reaction.actor_chat, config) + '> ';
+    }
+
+    callback({
+        channel: channel,
+        type: 'reaction',
+        text: prefix + 'reacted ' + added.join('') + ' to ' + target
+    });
+};
+
 exports.parseMsg = function(msg, myUser, tg, callback) {
     var channel;
     // TODO: Telegram code should not have to deal with IRC channels at all
@@ -496,12 +546,7 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
                 truncatedMessage = exports.getName(replyMsg.left_chat_participant,
                     config) + ' was removed by: ' + exports.getName(msg.from, config);
             } else if (replyMsg.text) {
-                truncatedMessage = replyMsg.text
-                                   .substr(0, config.replySnippetLength)
-                                   .trim();
-                if (truncatedMessage.length < replyMsg.text.length) {
-                    truncatedMessage = truncatedMessage + ' …';
-                }
+                truncatedMessage = M.snippet(replyMsg.text, config.replySnippetLength, ' …');
             } else {
                 truncatedMessage = '<reply to unk>';
             }

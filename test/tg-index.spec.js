@@ -14,11 +14,25 @@ var M = require('../src/message');
 // a reply to another message is rejected, unless allow_sending_without_reply.
 var sent = [];
 var rejectNext = false;
-function FakeTelegram() {}
-FakeTelegram.prototype.getMe = function() {
-    return new Promise(function() {});
+var fakes = [];
+var EventEmitter = require('events');
+function FakeTelegram(token, options) {
+    EventEmitter.call(this);
+    this.options = options;
+    fakes.push(this);
+}
+FakeTelegram.prototype = Object.create(EventEmitter.prototype);
+FakeTelegram.prototype.processUpdate = function(update) {
+    if (update.message) {
+        this.emit('message', update.message);
+    }
 };
-FakeTelegram.prototype.on = function() {};
+// getMe never resolves, so tg/index.js adds no listener, unless a test sets
+// botUser. Then it resolves, and the listeners of the bridge are added.
+var botUser = null;
+FakeTelegram.prototype.getMe = function() {
+    return botUser ? Promise.resolve(botUser) : new Promise(function() {});
+};
 FakeTelegram.prototype.sendMessage = function(chatId, text, options) {
     sent.push({text: text, options: options || {}});
     var html = options && options.parse_mode === 'html';
@@ -30,7 +44,7 @@ FakeTelegram.prototype.sendMessage = function(chatId, text, options) {
         rejectNext = false;
         return Promise.reject(new Error('Bad Request: can not parse entities'));
     }
-    return Promise.resolve({});
+    return Promise.resolve({message_id: 100 + sent.length});
 };
 // src/tg/index.js must load after this line, so that it gets the fake. No
 // spec that runs before this file loads src/tg/index.js or src/index.js.
@@ -140,5 +154,124 @@ describe('tg/index send a reply (#9)', function() {
             assert.strictEqual(sent[1].options.parse_mode, undefined);
             assert.strictEqual(sent[1].options.reply_to_message_id, 42);
         });
+    });
+});
+
+describe('tg/index reaction update (#10)', function() {
+    var tg;
+
+    before(function() {
+        tgInit(function() {});
+        tg = fakes[fakes.length - 1];
+    });
+
+    it('asks Telegram for reactions and emits them', function() {
+        var allowed = JSON.parse(tg.options.polling.params.allowed_updates);
+        assert.deepStrictEqual(allowed, ['message', 'edited_message', 'message_reaction']);
+
+        var got = [];
+        tg.on('message_reaction', function(r) { got.push(['reaction', r]); });
+        tg.on('message', function(m) { got.push(['message', m]); });
+        tg.processUpdate({update_id: 1, message_reaction: {message_id: 5}});
+        tg.processUpdate({update_id: 2, message: {message_id: 6}});
+        assert.deepStrictEqual(got, [['reaction', {message_id: 5}], ['message', {message_id: 6}]]);
+    });
+});
+
+describe('tg/index remembers what it sent for IRC (#10)', function() {
+    var tg;
+    var channel = {ircChan: '#chan', tgGroup: 'TestGroup', tgChatId: 1};
+
+    before(function() {
+        tg = tgInit(function() {});
+    });
+
+    beforeEach(function() {
+        sent = [];
+    });
+
+    it('stores the nick and the first words, without the reply id', function() {
+        return tg.send({channel: channel, user: 'erin', text: 'hello world again',
+                        replyTo: 'abcd'}).then(function() {
+            assert.deepStrictEqual(M.sentOf(1, 101), {nick: 'erin', snippet: 'hello worl…'});
+            var bold = '\x02hi\x02 $abcd';
+            return tg.send({channel: channel, user: 'erin', text: bold, replyTo: 'abcd'});
+        }).then(function() {
+            assert.deepStrictEqual(M.sentOf(1, 102), {nick: 'erin', snippet: 'hi'});
+        });
+    });
+
+    it('stores the text of the fallback, and the nick of an action', function() {
+        rejectNext = true;
+        return tg.send({channel: channel, type: 'action', original: {user: 'dave'}, text: 'waves'})
+            .then(function() {
+                assert.deepStrictEqual(M.sentOf(1, 102), {nick: 'dave', snippet: 'waves'});
+            });
+    });
+
+    it('stores nothing for a message without a nick', function() {
+        var other = {ircChan: '#other', tgGroup: 'Other', tgChatId: 5};
+        return tg.send({channel: other, text: 'topic text'}).then(function() {
+            assert.strictEqual(M.sentOf(5, 101), undefined);
+        });
+    });
+});
+
+describe('tg/index relays a reaction update to the bridge (#10)', function() {
+    var tg;
+    var relayed = [];
+    var saved;
+
+    before(function() {
+        saved = {channels: config.channels, maxMsgAge: config.maxMsgAge};
+        config.channels = [
+            {ircChan: '#chan', tgGroup: 'TestGroup', tgChatId: 1},
+            {ircChan: '#ro', tgGroup: 'ReadOnly', tgChatId: 4, tgGroupReadOnly: true}
+        ];
+        config.maxMsgAge = 60;
+        M.push({id: 'feed', original: {message_id: 77}});
+        botUser = {id: 9, username: 'bot'};
+        tgInit(function(message) {
+            relayed.push(message);
+        });
+        tg = fakes[fakes.length - 1];
+        // The listeners are added in a then of getMe, so wait one turn.
+        return Promise.resolve();
+    });
+
+    after(function() {
+        botUser = null;
+        config.channels = saved.channels;
+        config.maxMsgAge = saved.maxMsgAge;
+    });
+
+    beforeEach(function() {
+        relayed = [];
+    });
+
+    function update(chat, ageSeconds) {
+        tg.processUpdate({update_id: 1, message_reaction: {
+            chat: chat,
+            message_id: 77,
+            user: {id: 2, username: 'alice'},
+            date: Math.floor(Date.now() / 1000) - ageSeconds,
+            old_reaction: [],
+            new_reaction: [{type: 'emoji', emoji: '👍'}]
+        }});
+    }
+
+    it('sends a new reaction to the bridge as a tg message', function() {
+        update({id: 1, type: 'supergroup', title: 'TestGroup'}, 0);
+        assert.strictEqual(relayed.length, 1);
+        assert.strictEqual(relayed[0].protocol, 'tg');
+        assert.strictEqual(relayed[0].type, 'reaction');
+        assert.strictEqual(relayed[0].original.message_id, 77);
+        assert.ok(/reacted 👍 to \$feed$/.test(relayed[0].text), relayed[0].text);
+    });
+
+    it('drops a reaction in a read-only group, and an old reaction', function() {
+        update({id: 4, type: 'supergroup', title: 'ReadOnly'}, 0);
+        update({id: 1, type: 'supergroup', title: 'TestGroup'}, 120);
+        assert.deepStrictEqual(relayed, []);
     });
 });

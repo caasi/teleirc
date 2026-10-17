@@ -12,19 +12,30 @@ var init = function(msgCallback) {
         tgUtil.initHttpServer();
     }
 
+    // Telegram keeps allowed_updates until the next getUpdates changes it,
+    // so the list names every type that the bot reads.
     var tg = new Telegram(config.tgToken, {
-        polling: true,
+        polling: {params: {allowed_updates: JSON.stringify(
+            ['message', 'edited_message', 'message_reaction'])}},
         emojification: true,
     });
+
+    // node-telegram-bot-api 0.29 does not know message_reaction (Bot API 7.0)
+    // and drops it. Emit it before the library sees the update.
+    var processUpdate = tg.processUpdate.bind(tg);
+    tg.processUpdate = function(update) {
+        if (update.message_reaction) {
+            tg.emit('message_reaction', update.message_reaction);
+        }
+        return processUpdate(update);
+    };
 
     // get our own Telegram user
     tg.getMe().then(function(me) {
         myUser = me;
 
-        var recieveMessage = function(msg) {
-            logger.debug('got tg msg:', msg);
-
-            tgUtil.parseMsg(msg, myUser, tg, function(message) {
+        var relay = function(msg) {
+            return function(message) {
                 if (message) {
                     var tgGroupReadOnly = message.channel.tgGroupReadOnly;
                     var isOverrideReadonly = message.channel.tgGroupOverrideReadOnly;
@@ -42,10 +53,19 @@ var init = function(msgCallback) {
                     message.protocol = 'tg';
                     msgCallback(message);
                 }
-            });
+            };
+        };
+
+        var recieveMessage = function(msg) {
+            logger.debug('got tg msg:', msg);
+            tgUtil.parseMsg(msg, myUser, tg, relay(msg));
         };
 
         tg.on('message', recieveMessage);
+        tg.on('message_reaction', function(reaction) {
+            logger.debug('got tg reaction:', reaction);
+            tgUtil.parseReaction(reaction, relay(reaction));
+        });
         if (config.relayEdited) {
             tg.on('edited_message', recieveMessage);
         }
@@ -96,6 +116,10 @@ var init = function(msgCallback) {
                 fallbackText = fallbackText.replace(M.ID_FORMAT, '');
             }
 
+            // A reaction to this message names the nick and the first words.
+            var nick = message.type === 'action' ? message.original.user : message.user;
+            var plainText = fallbackText;
+
             if (message.type === 'action') {
                 fallbackText = '* ' + message.original.user + ' ' + fallbackText;
                 text = tgUtil.formatAction(config, message.original.user) + ' ' + text;
@@ -132,6 +156,14 @@ var init = function(msgCallback) {
                         // can be gone. Send the text without the reply then.
                         allow_sending_without_reply: true
                     });
+                })
+                .then(function(sent) {
+                    // A text of 4096 characters or more is sent in pages, and
+                    // sent is then an array, so it is not stored. One IRC line
+                    // is at most 512 bytes, so a text from IRC is never paged.
+                    if (nick && sent && sent.message_id) {
+                        M.pushSent(message.channel.tgChatId, sent.message_id, nick, plainText);
+                    }
                 })
                 .catch(function(err) {
                     logger.error('fallback failed too:', err);

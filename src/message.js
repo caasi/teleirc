@@ -44,9 +44,51 @@ function getId(msg) {
 function push(msg) {
     var tgId = msg && msg.original && msg.original.message_id;
 
-    if (msg && msg.id && tgId) {
+    // A reaction gives the id of the message that it reacts to. IRC never
+    // sees the id of the reaction, so idOf must not find it.
+    if (msg && msg.id && tgId && msg.type !== 'reaction') {
         messageMap[msg.id] = tgId;
     }
+}
+
+// ponytail: a linear scan, and the map has no chat id, so a message id of
+// one group can match a message of another group. Then a reaction names the
+// $id of the wrong message. Store the chat id with each $id to remove this.
+function idOf(tgId) {
+    return Object.keys(messageMap).filter(function(id) {
+        return messageMap[id] === tgId;
+    })[0];
+}
+
+// The messages that the bot sent to Telegram for IRC users. IRC shows them
+// with no $id, so a reaction to one names the nick and the first words.
+// ponytail: in memory and the last SENT_LIMIT only, so a restart forgets
+// them. Store them with messages.json if reactions to old lines matter.
+var SENT_LIMIT = 1000;
+var SNIPPET_LENGTH = 10;
+var sentMap = {};
+var sentKeys = [];
+
+// The first characters of a text, for a line that quotes it. Array.from
+// counts code points, so the cut does not split a surrogate pair. ellipsis
+// is added only when the cut removes characters.
+function snippet(text, length, ellipsis) {
+    var chars = Array.from(text);
+    var cut = chars.slice(0, length).join('').trim();
+    return chars.length > length ? cut + ellipsis : cut;
+}
+
+function pushSent(chatId, tgId, nick, text) {
+    var key = chatId + ':' + tgId;
+    sentMap[key] = {nick: nick, snippet: snippet(text, SNIPPET_LENGTH, '…')};
+    sentKeys.push(key);
+    if (sentKeys.length > SENT_LIMIT) {
+        delete sentMap[sentKeys.shift()];
+    }
+}
+
+function sentOf(chatId, tgId) {
+    return sentMap[chatId + ':' + tgId];
 }
 
 function list() {
@@ -62,6 +104,10 @@ module.exports = {
     NICK_FORMAT: NICK_FORMAT,
     getId: getId,
     push: push,
+    idOf: idOf,
+    snippet: snippet,
+    pushSent: pushSent,
+    sentOf: sentOf,
     list: list,
     get: get
 };
