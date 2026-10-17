@@ -114,3 +114,75 @@ describe('tg/util parseMsg media caption (#8)', function() {
                            '<alice> (Voice, 5s) http://files/v look');
     });
 });
+
+describe('tg/util parseReaction (#10)', function() {
+    var M = require('../src/message');
+    var saved;
+
+    before(function() {
+        saved = {channels: config.channels, soloUse: config.soloUse};
+        config.channels = [{ircChan: '#chan', tgGroup: 'TestGroup', tgChatId: 1}];
+        config.soloUse = false;
+        M.push({id: 'beef', original: {message_id: 900}});
+    });
+
+    after(function() {
+        config.channels = saved.channels;
+        config.soloUse = saved.soloUse;
+    });
+
+    function emoji(e) {
+        return {type: 'emoji', emoji: e};
+    }
+
+    function relay(fields) {
+        var reaction = {
+            chat: {id: 1, type: 'supergroup', title: 'TestGroup'},
+            message_id: 900,
+            user: {id: 2, username: 'alice'},
+            date: Math.floor(Date.now() / 1000),
+            old_reaction: [],
+            new_reaction: [emoji('👍')]
+        };
+        Object.keys(fields || {}).forEach(function(key) {
+            reaction[key] = fields[key];
+        });
+        var result = 'no callback';
+        tgUtil.parseReaction(reaction, function(message) {
+            result = message && tgUtil.stripIrcCodes(message.text);
+        });
+        return result;
+    }
+
+    it('relays an added emoji with the id of the message', function() {
+        assert.strictEqual(relay(), '<alice> reacted 👍 to $beef');
+    });
+
+    it('relays only the emoji that the update adds', function() {
+        var update = {old_reaction: [emoji('👍')], new_reaction: [emoji('👍'), emoji('🔥')]};
+        assert.strictEqual(relay(update), '<alice> reacted 🔥 to $beef');
+    });
+
+    it('drops a removed reaction, a custom emoji and a paid reaction', function() {
+        assert.strictEqual(relay({old_reaction: [emoji('👍')], new_reaction: []}), undefined);
+        assert.strictEqual(relay({new_reaction: [{type: 'custom_emoji', custom_emoji_id: '1'}]}),
+                           undefined);
+        assert.strictEqual(relay({new_reaction: [{type: 'paid'}]}), undefined);
+    });
+
+    it('drops a reaction to a message without an id, or in another group', function() {
+        assert.strictEqual(relay({message_id: 901}), undefined);
+        assert.strictEqual(relay({chat: {id: 3, type: 'supergroup', title: 'Other'}}), undefined);
+    });
+
+    it('names the chat for an anonymous reaction', function() {
+        assert.strictEqual(relay({user: undefined, actor_chat: {id: 1, title: 'TestGroup'}}),
+                           '<TestGroup> reacted 👍 to $beef');
+    });
+
+    it('does not give the id of a reaction to the next reaction', function() {
+        M.push({id: 'f00d', type: 'reaction', original: {message_id: 900}});
+        assert.strictEqual(M.idOf(900), 'beef');
+        assert.strictEqual(M.get('f00d'), undefined);
+    });
+});

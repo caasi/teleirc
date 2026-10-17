@@ -44,9 +44,20 @@ function getId(msg) {
 function push(msg) {
     var tgId = msg && msg.original && msg.original.message_id;
 
-    if (msg && msg.id && tgId) {
+    // A reaction gives the id of the message that it reacts to. IRC never
+    // sees the id of the reaction, so idOf must not find it.
+    if (msg && msg.id && tgId && msg.type !== 'reaction') {
         messageMap[msg.id] = tgId;
     }
+}
+
+// ponytail: a linear scan, and the map has no chat id, so a message id of
+// one group can match a message of another group. On 2026-10-17 the map had
+// 28409 ids and no message id twice. Store the chat id when a wrong id shows.
+function idOf(tgId) {
+    return Object.keys(messageMap).filter(function(id) {
+        return messageMap[id] === tgId;
+    })[0];
 }
 
 function list() {
@@ -62,6 +73,7 @@ module.exports = {
     NICK_FORMAT: NICK_FORMAT,
     getId: getId,
     push: push,
+    idOf: idOf,
     list: list,
     get: get
 };

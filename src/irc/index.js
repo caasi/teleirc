@@ -343,8 +343,8 @@ var init = function(msgCallback) {
             // replace newlines
             message.text = message.text.replace(/\n/g, config.replaceNewlines);
 
-            // append the message id
-            if (message && message.id) {
+            // append the message id. A reaction has no message to reply to.
+            if (message && message.id && message.type !== 'reaction') {
                 message.text += ' $' + message.id;
             }
 

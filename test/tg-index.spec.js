@@ -14,11 +14,22 @@ var M = require('../src/message');
 // a reply to another message is rejected, unless allow_sending_without_reply.
 var sent = [];
 var rejectNext = false;
-function FakeTelegram() {}
+var fakes = [];
+var EventEmitter = require('events');
+function FakeTelegram(token, options) {
+    EventEmitter.call(this);
+    this.options = options;
+    fakes.push(this);
+}
+FakeTelegram.prototype = Object.create(EventEmitter.prototype);
+FakeTelegram.prototype.processUpdate = function(update) {
+    if (update.message) {
+        this.emit('message', update.message);
+    }
+};
 FakeTelegram.prototype.getMe = function() {
     return new Promise(function() {});
 };
-FakeTelegram.prototype.on = function() {};
 FakeTelegram.prototype.sendMessage = function(chatId, text, options) {
     sent.push({text: text, options: options || {}});
     var html = options && options.parse_mode === 'html';
@@ -140,5 +151,20 @@ describe('tg/index send a reply (#9)', function() {
             assert.strictEqual(sent[1].options.parse_mode, undefined);
             assert.strictEqual(sent[1].options.reply_to_message_id, 42);
         });
+    });
+});
+
+describe('tg/index reaction update (#10)', function() {
+    it('asks Telegram for reactions and emits them', function() {
+        var tg = fakes[fakes.length - 1];
+        var allowed = JSON.parse(tg.options.polling.params.allowed_updates);
+        assert.deepStrictEqual(allowed, ['message', 'edited_message', 'message_reaction']);
+
+        var got = [];
+        tg.on('message_reaction', function(r) { got.push(['reaction', r]); });
+        tg.on('message', function(m) { got.push(['message', m]); });
+        tg.processUpdate({update_id: 1, message_reaction: {message_id: 5}});
+        tg.processUpdate({update_id: 2, message: {message_id: 6}});
+        assert.deepStrictEqual(got, [['reaction', {message_id: 5}], ['message', {message_id: 6}]]);
     });
 });

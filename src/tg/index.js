@@ -12,19 +12,30 @@ var init = function(msgCallback) {
         tgUtil.initHttpServer();
     }
 
+    // Telegram keeps allowed_updates until the next getUpdates changes it,
+    // so the list names every type that the bot reads.
     var tg = new Telegram(config.tgToken, {
-        polling: true,
+        polling: {params: {allowed_updates: JSON.stringify(
+            ['message', 'edited_message', 'message_reaction'])}},
         emojification: true,
     });
+
+    // node-telegram-bot-api 0.29 does not know message_reaction (Bot API 7.0)
+    // and drops it. Emit it before the library sees the update.
+    var processUpdate = tg.processUpdate.bind(tg);
+    tg.processUpdate = function(update) {
+        if (update.message_reaction) {
+            tg.emit('message_reaction', update.message_reaction);
+        }
+        return processUpdate(update);
+    };
 
     // get our own Telegram user
     tg.getMe().then(function(me) {
         myUser = me;
 
-        var recieveMessage = function(msg) {
-            logger.debug('got tg msg:', msg);
-
-            tgUtil.parseMsg(msg, myUser, tg, function(message) {
+        var relay = function(msg) {
+            return function(message) {
                 if (message) {
                     var tgGroupReadOnly = message.channel.tgGroupReadOnly;
                     var isOverrideReadonly = message.channel.tgGroupOverrideReadOnly;
@@ -42,10 +53,19 @@ var init = function(msgCallback) {
                     message.protocol = 'tg';
                     msgCallback(message);
                 }
-            });
+            };
+        };
+
+        var recieveMessage = function(msg) {
+            logger.debug('got tg msg:', msg);
+            tgUtil.parseMsg(msg, myUser, tg, relay(msg));
         };
 
         tg.on('message', recieveMessage);
+        tg.on('message_reaction', function(reaction) {
+            logger.debug('got tg reaction:', reaction);
+            tgUtil.parseReaction(reaction, relay(reaction));
+        });
         if (config.relayEdited) {
             tg.on('edited_message', recieveMessage);
         }
