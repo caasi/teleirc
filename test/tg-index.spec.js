@@ -41,7 +41,7 @@ FakeTelegram.prototype.sendMessage = function(chatId, text, options) {
         rejectNext = false;
         return Promise.reject(new Error('Bad Request: can not parse entities'));
     }
-    return Promise.resolve({});
+    return Promise.resolve({message_id: 100 + sent.length});
 };
 // src/tg/index.js must load after this line, so that it gets the fake. No
 // spec that runs before this file loads src/tg/index.js or src/index.js.
@@ -166,5 +166,44 @@ describe('tg/index reaction update (#10)', function() {
         tg.processUpdate({update_id: 1, message_reaction: {message_id: 5}});
         tg.processUpdate({update_id: 2, message: {message_id: 6}});
         assert.deepStrictEqual(got, [['reaction', {message_id: 5}], ['message', {message_id: 6}]]);
+    });
+});
+
+describe('tg/index remembers what it sent for IRC (#10)', function() {
+    var tg;
+    var channel = {ircChan: '#chan', tgGroup: 'TestGroup', tgChatId: 1};
+
+    before(function() {
+        tg = tgInit(function() {});
+    });
+
+    beforeEach(function() {
+        sent = [];
+    });
+
+    it('stores the nick and the first words, without the reply id', function() {
+        return tg.send({channel: channel, user: 'erin', text: 'hello world again',
+                        replyTo: 'abcd'}).then(function() {
+            assert.deepStrictEqual(M.sentOf(1, 101), {nick: 'erin', snippet: 'hello worl…'});
+            var bold = '\x02hi\x02 $abcd';
+            return tg.send({channel: channel, user: 'erin', text: bold, replyTo: 'abcd'});
+        }).then(function() {
+            assert.deepStrictEqual(M.sentOf(1, 102), {nick: 'erin', snippet: 'hi'});
+        });
+    });
+
+    it('stores the text of the fallback, and the nick of an action', function() {
+        rejectNext = true;
+        return tg.send({channel: channel, type: 'action', original: {user: 'dave'}, text: 'waves'})
+            .then(function() {
+                assert.deepStrictEqual(M.sentOf(1, 102), {nick: 'dave', snippet: 'waves'});
+            });
+    });
+
+    it('stores nothing for a message without a nick', function() {
+        var other = {ircChan: '#other', tgGroup: 'Other', tgChatId: 5};
+        return tg.send({channel: other, text: 'topic text'}).then(function() {
+            assert.strictEqual(M.sentOf(5, 101), undefined);
+        });
     });
 });

@@ -175,6 +175,29 @@ describe('tg/util parseReaction (#10)', function() {
         assert.strictEqual(relay({chat: {id: 3, type: 'supergroup', title: 'Other'}}), undefined);
     });
 
+    it('prefers the message from IRC of this chat to a $id of any group', function() {
+        // messages.json has no chat id: 'abba' is message 960 of some group.
+        M.push({id: 'abba', original: {message_id: 960}});
+        M.pushSent(1, 960, 'erin', 'hi there');
+        assert.strictEqual(relay({message_id: 960}), '<alice> reacted 👍 to erin: hi there');
+    });
+
+    it('names the nick and the first words of a message from IRC', function() {
+        M.pushSent(1, 950, 'erin', 'hi there');
+        assert.strictEqual(relay({message_id: 950}), '<alice> reacted 👍 to erin: hi there');
+        assert.strictEqual(relay({message_id: 950, chat: {id: 3, title: 'TestGroup'}}), undefined);
+    });
+
+    it('forgets the oldest message from IRC after 1000', function() {
+        M.pushSent(2, 1, 'old', 'x');
+        for (var i = 2; i <= 1000; i++) {
+            M.pushSent(2, i, 'n', 'x');
+        }
+        assert.ok(M.sentOf(2, 1));
+        M.pushSent(2, 1001, 'n', 'x');
+        assert.strictEqual(M.sentOf(2, 1), undefined);
+    });
+
     it('names the chat for an anonymous reaction', function() {
         assert.strictEqual(relay({user: undefined, actor_chat: {id: 1, title: 'TestGroup'}}),
                            '<TestGroup> reacted 👍 to $beef');

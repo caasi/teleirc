@@ -365,13 +365,16 @@ var withCaption = function(url, msg) {
 
 // The bot relays only the emoji that a reaction update adds. A removed
 // reaction, a custom emoji and a paid reaction stay on Telegram. IRC users
-// know a message only by its $id, so a reaction to a message without an id
-// is not relayed.
+// know a message from Telegram by its $id, and a message from IRC by its
+// nick and first words. A reaction to any other message is not relayed.
 exports.parseReaction = function(reaction, callback) {
     var channel = Chan.findByGroup(config.channels, reaction.chat.title);
-    var id = M.idOf(reaction.message_id);
+    // sentOf knows the chat, and idOf does not, so sentOf goes first.
+    var sent = M.sentOf(reaction.chat.id, reaction.message_id);
+    var id = !sent && M.idOf(reaction.message_id);
+    var target = sent ? sent.nick + ': ' + sent.snippet : id && '$' + id;
     var age = Math.floor(Date.now() / 1000) - reaction.date;
-    if (!channel || !id || (config.maxMsgAge && age > config.maxMsgAge)) {
+    if (!channel || !target || (config.maxMsgAge && age > config.maxMsgAge)) {
         return callback();
     }
 
@@ -395,7 +398,7 @@ exports.parseReaction = function(reaction, callback) {
     callback({
         channel: channel,
         type: 'reaction',
-        text: prefix + 'reacted ' + added.join('') + ' to $' + id
+        text: prefix + 'reacted ' + added.join('') + ' to ' + target
     });
 };
 

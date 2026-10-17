@@ -116,6 +116,10 @@ var init = function(msgCallback) {
                 fallbackText = fallbackText.replace(M.ID_FORMAT, '');
             }
 
+            // A reaction to this message names the nick and the first words.
+            var nick = message.type === 'action' ? message.original.user : message.user;
+            var plainText = fallbackText;
+
             if (message.type === 'action') {
                 fallbackText = '* ' + message.original.user + ' ' + fallbackText;
                 text = tgUtil.formatAction(config, message.original.user) + ' ' + text;
@@ -152,6 +156,11 @@ var init = function(msgCallback) {
                         // can be gone. Send the text without the reply then.
                         allow_sending_without_reply: true
                     });
+                })
+                .then(function(sent) {
+                    if (nick && sent && sent.message_id) {
+                        M.pushSent(message.channel.tgChatId, sent.message_id, nick, plainText);
+                    }
                 })
                 .catch(function(err) {
                     logger.error('fallback failed too:', err);

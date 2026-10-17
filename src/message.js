@@ -52,12 +52,38 @@ function push(msg) {
 }
 
 // ponytail: a linear scan, and the map has no chat id, so a message id of
-// one group can match a message of another group. On 2026-10-17 the map had
-// 28409 ids and no message id twice. Store the chat id when a wrong id shows.
+// one group can match a message of another group. Then a reaction names the
+// $id of the wrong message. Store the chat id with each $id to remove this.
 function idOf(tgId) {
     return Object.keys(messageMap).filter(function(id) {
         return messageMap[id] === tgId;
     })[0];
+}
+
+// The messages that the bot sent to Telegram for IRC users. IRC shows them
+// with no $id, so a reaction to one names the nick and the first words.
+// ponytail: in memory and the last SENT_LIMIT only, so a restart forgets
+// them. Store them with messages.json if reactions to old lines matter.
+var SENT_LIMIT = 1000;
+var SNIPPET_LENGTH = 10;
+var sentMap = {};
+var sentKeys = [];
+
+function pushSent(chatId, tgId, nick, text) {
+    var key = chatId + ':' + tgId;
+    var snippet = text.substr(0, SNIPPET_LENGTH).trim();
+    if (snippet.length < text.length) {
+        snippet += '…';
+    }
+    sentMap[key] = {nick: nick, snippet: snippet};
+    sentKeys.push(key);
+    if (sentKeys.length > SENT_LIMIT) {
+        delete sentMap[sentKeys.shift()];
+    }
+}
+
+function sentOf(chatId, tgId) {
+    return sentMap[chatId + ':' + tgId];
 }
 
 function list() {
@@ -74,6 +100,8 @@ module.exports = {
     getId: getId,
     push: push,
     idOf: idOf,
+    pushSent: pushSent,
+    sentOf: sentOf,
     list: list,
     get: get
 };
