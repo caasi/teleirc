@@ -27,8 +27,11 @@ FakeTelegram.prototype.processUpdate = function(update) {
         this.emit('message', update.message);
     }
 };
+// getMe never resolves, so tg/index.js adds no listener, unless a test sets
+// botUser. Then it resolves, and the listeners of the bridge are added.
+var botUser = null;
 FakeTelegram.prototype.getMe = function() {
-    return new Promise(function() {});
+    return botUser ? Promise.resolve(botUser) : new Promise(function() {});
 };
 FakeTelegram.prototype.sendMessage = function(chatId, text, options) {
     sent.push({text: text, options: options || {}});
@@ -155,8 +158,14 @@ describe('tg/index send a reply (#9)', function() {
 });
 
 describe('tg/index reaction update (#10)', function() {
+    var tg;
+
+    before(function() {
+        tgInit(function() {});
+        tg = fakes[fakes.length - 1];
+    });
+
     it('asks Telegram for reactions and emits them', function() {
-        var tg = fakes[fakes.length - 1];
         var allowed = JSON.parse(tg.options.polling.params.allowed_updates);
         assert.deepStrictEqual(allowed, ['message', 'edited_message', 'message_reaction']);
 
@@ -205,5 +214,64 @@ describe('tg/index remembers what it sent for IRC (#10)', function() {
         return tg.send({channel: other, text: 'topic text'}).then(function() {
             assert.strictEqual(M.sentOf(5, 101), undefined);
         });
+    });
+});
+
+describe('tg/index relays a reaction update to the bridge (#10)', function() {
+    var tg;
+    var relayed = [];
+    var saved;
+
+    before(function() {
+        saved = {channels: config.channels, maxMsgAge: config.maxMsgAge};
+        config.channels = [
+            {ircChan: '#chan', tgGroup: 'TestGroup', tgChatId: 1},
+            {ircChan: '#ro', tgGroup: 'ReadOnly', tgChatId: 4, tgGroupReadOnly: true}
+        ];
+        config.maxMsgAge = 60;
+        M.push({id: 'feed', original: {message_id: 77}});
+        botUser = {id: 9, username: 'bot'};
+        tgInit(function(message) {
+            relayed.push(message);
+        });
+        tg = fakes[fakes.length - 1];
+        // The listeners are added in a then of getMe, so wait one turn.
+        return Promise.resolve();
+    });
+
+    after(function() {
+        botUser = null;
+        config.channels = saved.channels;
+        config.maxMsgAge = saved.maxMsgAge;
+    });
+
+    beforeEach(function() {
+        relayed = [];
+    });
+
+    function update(chat, ageSeconds) {
+        tg.processUpdate({update_id: 1, message_reaction: {
+            chat: chat,
+            message_id: 77,
+            user: {id: 2, username: 'alice'},
+            date: Math.floor(Date.now() / 1000) - ageSeconds,
+            old_reaction: [],
+            new_reaction: [{type: 'emoji', emoji: '👍'}]
+        }});
+    }
+
+    it('sends a new reaction to the bridge as a tg message', function() {
+        update({id: 1, type: 'supergroup', title: 'TestGroup'}, 0);
+        assert.strictEqual(relayed.length, 1);
+        assert.strictEqual(relayed[0].protocol, 'tg');
+        assert.strictEqual(relayed[0].type, 'reaction');
+        assert.strictEqual(relayed[0].original.message_id, 77);
+        assert.ok(/reacted 👍 to \$feed$/.test(relayed[0].text), relayed[0].text);
+    });
+
+    it('drops a reaction in a read-only group, and an old reaction', function() {
+        update({id: 4, type: 'supergroup', title: 'ReadOnly'}, 0);
+        update({id: 1, type: 'supergroup', title: 'TestGroup'}, 120);
+        assert.deepStrictEqual(relayed, []);
     });
 });

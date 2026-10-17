@@ -204,8 +204,9 @@ describe('tg/util parseReaction (#10)', function() {
     });
 
     it('does not give the id of a reaction to the next reaction', function() {
-        M.push({id: 'f00d', type: 'reaction', original: {message_id: 900}});
+        // Object.keys lists an id of digits first, so only such an id shows it.
+        M.push({id: '1234', type: 'reaction', original: {message_id: 900}});
         assert.strictEqual(M.idOf(900), 'beef');
-        assert.strictEqual(M.get('f00d'), undefined);
+        assert.strictEqual(M.get('1234'), undefined);
     });
 });
