@@ -158,6 +158,9 @@ var init = function(msgCallback) {
                     });
                 })
                 .then(function(sent) {
+                    // A text of 4096 characters or more is sent in pages, and
+                    // sent is then an array, so it is not stored. One IRC line
+                    // is at most 512 bytes, so a text from IRC is never paged.
                     if (nick && sent && sent.message_id) {
                         M.pushSent(message.channel.tgChatId, sent.message_id, nick, plainText);
                     }

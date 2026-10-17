@@ -374,7 +374,18 @@ exports.parseReaction = function(reaction, callback) {
     var id = !sent && M.idOf(reaction.message_id);
     var target = sent ? sent.nick + ': ' + sent.snippet : id && '$' + id;
     var age = Math.floor(Date.now() / 1000) - reaction.date;
-    if (!channel || !target || (config.maxMsgAge && age > config.maxMsgAge)) {
+    // At log level verbose, these lines tell a dropped reaction from an
+    // update that never came (for example, when the bot is no administrator).
+    if (!channel) {
+        logger.verbose('reaction in a group that is not in config: "' +
+                       reaction.chat.title + '", dropping it...');
+        return callback();
+    } else if (!target) {
+        logger.verbose('reaction to message ' + reaction.message_id +
+                       ', which IRC does not know, dropping it...');
+        return callback();
+    } else if (config.maxMsgAge && age > config.maxMsgAge) {
+        logger.verbose('skipping a reaction ' + age + ' seconds old');
         return callback();
     }
 
