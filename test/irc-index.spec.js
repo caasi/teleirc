@@ -31,7 +31,7 @@ function fakeIrcServer(linesAfterJoin, done) {
                 if (command === 'CAP' && line.split(' ')[1] === 'LS') {
                     send(':srv CAP * LS :');
                 } else if (command === 'USER') {
-                    send(':srv 001 bot :Welcome');
+                    send(':srv 001 ' + (server.welcomeNick || 'bot') + ' :Welcome');
                     send(':srv 376 bot :End of MOTD');
                 } else if (command === 'PRIVMSG' && server.onPrivmsg) {
                     server.onPrivmsg(line);
@@ -115,6 +115,19 @@ describe('irc/index', function() {
             assert.deepStrictEqual(commands, ['MODE bot +B', 'JOIN #chan']);
             done();
         });
+    });
+
+    it('sets bot mode on the nick that the server gives in 001', function(done) {
+        // A server can register the client with a nick other than the one it
+        // asked for, for example a nick cut to NICKLEN.
+        server = startBridge([':erin!e@h NOTICE #chan :ready'], function() {
+            var modes = server.received.filter(function(line) {
+                return /^MODE /.test(line);
+            });
+            assert.deepStrictEqual(modes, ['MODE bot_ +B']);
+            done();
+        });
+        server.welcomeNick = 'bot_';
     });
 
     it('relays a channel NOTICE with its reply id (issue #11)', function(done) {

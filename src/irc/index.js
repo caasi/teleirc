@@ -44,13 +44,14 @@ var init = function(msgCallback) {
         logger.error('unhandled IRC error:', error);
     });
 
-    nodeIrc.on('registered', function() {
+    nodeIrc.on('registered', function(event) {
         // Mark the bridge as a bot (IRCv3 bot mode). Libera.Chat forbids a
         // change of this mode while the client is in a channel, so it must go
         // before the JOINs. Do not gate it on ISUPPORT BOT: 'registered' fires
         // on 001, before the server sends 005. A server without +B answers
-        // with an error numeric, which is harmless.
-        nodeIrc.raw('MODE', nodeIrc.user.nick, '+B');
+        // with an error numeric, which is harmless. Use the nick from 001:
+        // nodeIrc.user.nick still holds the requested nick at this point.
+        nodeIrc.raw('MODE', event.nick, '+B');
         // IRC perform on connect
         config.ircPerformCmds.forEach(function(cmd) {
             nodeIrc.raw.apply(nodeIrc, cmd.split(' '));
