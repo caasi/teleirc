@@ -45,6 +45,12 @@ var init = function(msgCallback) {
     });
 
     nodeIrc.on('registered', function() {
+        // Mark the bridge as a bot (IRCv3 bot mode). Libera.Chat forbids a
+        // change of this mode while the client is in a channel, so it must go
+        // before the JOINs. Do not gate it on ISUPPORT BOT: 'registered' fires
+        // on 001, before the server sends 005. A server without +B answers
+        // with an error numeric, which is harmless.
+        nodeIrc.raw('MODE', nodeIrc.user.nick, '+B');
         // IRC perform on connect
         config.ircPerformCmds.forEach(function(cmd) {
             nodeIrc.raw.apply(nodeIrc, cmd.split(' '));

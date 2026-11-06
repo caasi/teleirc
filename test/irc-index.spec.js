@@ -24,6 +24,7 @@ function fakeIrcServer(linesAfterJoin, done) {
             buffer = lines.pop();
             lines.forEach(function(line) {
                 line = line.replace(/\r$/, '');
+                server.received.push(line);
                 var command = line.split(' ')[0];
                 // Answer only CAP LS. irc-framework answers each LS with
                 // CAP END, so an answer to CAP END starts a loop.
@@ -41,6 +42,7 @@ function fakeIrcServer(linesAfterJoin, done) {
             });
         });
     });
+    server.received = [];
     server.listen(0, '127.0.0.1', function() {
         done(server.address().port);
     });
@@ -101,6 +103,18 @@ describe('irc/index', function() {
         if (server) {
             server.stop();
         }
+    });
+
+    it('sets bot mode +B before it joins a channel', function(done) {
+        // Libera.Chat does not let a client change bot mode while it is in a
+        // channel, so the MODE must reach the server before the first JOIN.
+        server = startBridge([':erin!e@h NOTICE #chan :ready'], function() {
+            var commands = server.received.filter(function(line) {
+                return /^(MODE|JOIN) /.test(line);
+            });
+            assert.deepStrictEqual(commands, ['MODE bot +B', 'JOIN #chan']);
+            done();
+        });
     });
 
     it('relays a channel NOTICE with its reply id (issue #11)', function(done) {
