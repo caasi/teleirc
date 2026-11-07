@@ -51,6 +51,16 @@ var init = function(msgCallback) {
 
                     message.original = msg;
                     message.protocol = 'tg';
+                    var pasted = message.text && tgUtil.pasteLongText(message.text, config);
+                    if (pasted) {
+                        message.text = pasted;
+                        tg.sendMessage(msg.chat.id, config.pasteWarning, {
+                            reply_to_message_id: msg.message_id,
+                            allow_sending_without_reply: true
+                        }).catch(function(err) {
+                            logger.error('paste warning failed:', err);
+                        });
+                    }
                     msgCallback(message);
                 }
             };

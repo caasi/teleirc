@@ -221,6 +221,41 @@ exports.serveFile = function(fileId, mimetype, config, tg, callback) {
     .then(callback);
 };
 
+// A text of more than config.pasteMaxLines lines floods an IRC channel, also
+// at one line per second. Write the text to a file next to the media files and
+// return the one line for IRC that links to it, or null if the text is short.
+// The file holds at most config.pasteMaxBytes bytes, so it starts with a BOM:
+// node-static sends text/plain with no charset.
+exports.pasteLongText = function(text, config) {
+    var lines = text.split('\n').filter(function(line) {
+        return /\S/.test(line);
+    });
+    if (!config.showMedia || !config.pasteMaxLines ||
+        lines.length <= config.pasteMaxLines) {
+        return null;
+    }
+
+    var bytes = Buffer.from(exports.stripIrcCodes(text));
+    var body = bytes.toString();
+    if (bytes.length > config.pasteMaxBytes) {
+        // Cut before a UTF-8 continuation byte, never inside a character.
+        var end = config.pasteMaxBytes;
+        while (end > 0 && (bytes[end] & 0xC0) === 0x80) {
+            end--;
+        }
+        body = bytes.subarray(0, end).toString() + '\n[truncated]\n';
+    }
+
+    var filesPath = path.join(chatIdsPath, 'files');
+    // mkdirp 0.5 without a callback is async; the write must come after it.
+    fs.mkdirSync(filesPath, {recursive: true});
+    var name = 'paste_' + exports.randomValueBase64(config.mediaRandomLength || 8) + '.txt';
+    fs.writeFileSync(path.join(filesPath, name), '\uFEFF' + body);
+
+    return lines[0] + ' … (' + lines.length + ' lines) ' +
+        config.httpLocation + '/' + name;
+};
+
 exports.initHttpServer = function() {
     var filesPath = path.join(chatIdsPath, 'files');
     mkdirp(filesPath);

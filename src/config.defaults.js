@@ -111,6 +111,19 @@ config.usernameFallbackFormat = '%firstName% %lastName%';
 // Tip: you can set this to \n if you want them as separate messages on IRC
 config.replaceNewlines = ' … ';
 
+// A Telegram message of more than this many non-empty lines goes to IRC as
+// its first line and a link to a .txt file in the media folder. It needs
+// showMedia. 0 turns it off.
+config.pasteMaxLines = 3;
+
+// The .txt file holds at most this many bytes of the text; the rest is cut.
+config.pasteMaxBytes = 16384;
+
+// The bot replies with this text, in the Telegram group, to a message that
+// went to IRC as a link.
+config.pasteWarning = 'A message of more than 3 lines goes to IRC only as a ' +
+    'link. Please send long text as a paste.';
+
 // Send message in text, markdown or html
 config.parseMode = '';
 

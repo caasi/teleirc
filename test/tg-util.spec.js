@@ -221,3 +221,35 @@ describe('tg/util parseReaction (#10)', function() {
         assert.strictEqual(M.get('1234'), undefined);
     });
 });
+
+describe('tg/util pasteLongText', function() {
+    var fs = require('fs');
+    var path = require('path');
+    var home = require('./helpers/sandbox');
+    var opts = {showMedia: true, pasteMaxLines: 3, pasteMaxBytes: 16384,
+        mediaRandomLength: 8, httpLocation: 'https://files.example'};
+
+    function readPaste(line) {
+        var name = line.split('https://files.example/')[1];
+        return fs.readFileSync(path.join(home, '.teleirc', 'files', name), 'utf8');
+    }
+
+    it('keeps a text of at most pasteMaxLines non-empty lines', function() {
+        assert.strictEqual(tgUtil.pasteLongText('<a> 1\n\n2\n3', opts), null);
+        assert.strictEqual(tgUtil.pasteLongText('<a> 1\n2\n3\n4',
+            Object.assign({}, opts, {showMedia: false})), null);
+    });
+
+    it('links a longer text, saved with a BOM', function() {
+        var line = tgUtil.pasteLongText('<a> 1\n2\n3\n4', opts);
+        assert.match(line, /^<a> 1 … \(4 lines\) https:\/\/files\.example\/paste_\w{8}\.txt$/);
+        assert.strictEqual(readPaste(line), '﻿<a> 1\n2\n3\n4');
+    });
+
+    it('cuts the file at pasteMaxBytes, between characters', function() {
+        // 時 is 3 bytes in UTF-8, so a cut at 10 bytes falls inside one.
+        var line = tgUtil.pasteLongText('時時時時\n2\n3\n4',
+            Object.assign({}, opts, {pasteMaxBytes: 10}));
+        assert.strictEqual(readPaste(line), '﻿時時時\n[truncated]\n');
+    });
+});
