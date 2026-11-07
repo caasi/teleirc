@@ -243,7 +243,7 @@ describe('tg/util pasteLongText', function() {
     it('links a longer text, saved with a BOM', function() {
         var line = tgUtil.pasteLongText('<a> 1\n2\n3\n4', opts);
         assert.match(line, /^<a> 1 … \(4 lines\) https:\/\/files\.example\/paste_\w{8}\.txt$/);
-        assert.strictEqual(readPaste(line), '﻿<a> 1\n2\n3\n4');
+        assert.strictEqual(readPaste(line), '\uFEFF<a> 1\n2\n3\n4');
     });
 
     it('counts a long line as the IRC lines that it becomes', function() {
@@ -269,7 +269,7 @@ describe('tg/util pasteLongText', function() {
         // 時 is 3 bytes in UTF-8, so a cut at 10 bytes falls inside one.
         var line = tgUtil.pasteLongText('時時時時\n2\n3\n4',
             Object.assign({}, opts, {pasteMaxBytes: 10}));
-        assert.strictEqual(readPaste(line), '﻿時時時\n[truncated]\n');
+        assert.strictEqual(readPaste(line), '\uFEFF時時時\n[truncated]\n');
     });
 });
 
