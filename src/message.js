@@ -78,6 +78,35 @@ function snippet(text, length, ellipsis) {
     return chars.length > length ? cut + ellipsis : cut;
 }
 
+// One IRC line is 512 bytes, also the ":nick!user@host PRIVMSG #chan :"
+// that the server adds and the CRLF. irc-framework say() also cuts at 350
+// UTF-16 units and sends the pieces at once. A unit is at least 1 UTF-8 byte,
+// so a block of 350 bytes is never cut again.
+var IRC_LINE_BYTES = 350;
+
+// Cuts text into blocks of at most maxBytes UTF-8 bytes, between characters.
+// irc-framework cuts at 350 UTF-16 units instead: 350 CJK characters are
+// 1050 bytes, and it sends all the blocks at once.
+function splitBytes(text, maxBytes) {
+    var blocks = [];
+    var block = '';
+    var size = 0;
+    Array.from(text).forEach(function(ch) {
+        var n = Buffer.byteLength(ch);
+        if (size + n > maxBytes && block) {
+            blocks.push(block);
+            block = '';
+            size = 0;
+        }
+        block += ch;
+        size += n;
+    });
+    if (block || !blocks.length) {
+        blocks.push(block);
+    }
+    return blocks;
+}
+
 function pushSent(chatId, tgId, nick, text) {
     var key = chatId + ':' + tgId;
     sentMap[key] = {nick: nick, snippet: snippet(text, SNIPPET_LENGTH, '…')};
@@ -102,6 +131,8 @@ module.exports = {
     push: push,
     idOf: idOf,
     snippet: snippet,
+    IRC_LINE_BYTES: IRC_LINE_BYTES,
+    splitBytes: splitBytes,
     pushSent: pushSent,
     sentOf: sentOf,
     get: get

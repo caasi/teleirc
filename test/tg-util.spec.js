@@ -246,6 +246,13 @@ describe('tg/util pasteLongText', function() {
         assert.strictEqual(readPaste(line), '﻿<a> 1\n2\n3\n4');
     });
 
+    it('counts a long line as the IRC lines that it becomes', function() {
+        // 時 is 3 bytes, so 600 of them are 1800 bytes: 5 blocks of 400 bytes.
+        var line = tgUtil.pasteLongText('<a> ' + '時'.repeat(600), opts);
+        assert.match(line, /… \(1 lines\) https:/);
+        assert.ok(Buffer.byteLength(line) < 400, Buffer.byteLength(line));
+    });
+
     it('cuts the file at pasteMaxBytes, between characters', function() {
         // 時 is 3 bytes in UTF-8, so a cut at 10 bytes falls inside one.
         var line = tgUtil.pasteLongText('時時時時\n2\n3\n4',
@@ -273,5 +280,21 @@ describe('tg/util initHttpServer', function() {
                 done();
             });
         });
+    });
+});
+
+describe('message splitBytes', function() {
+    var M = require('../src/message');
+
+    it('cuts between characters and keeps every character', function() {
+        var text = fc.string({unit: 'grapheme', maxLength: 200});
+        fc.assert(fc.property(text, fc.integer({min: 4, max: 50}),
+            function(text, max) {
+                var blocks = M.splitBytes(text, max);
+                assert.strictEqual(blocks.join(''), text);
+                blocks.forEach(function(block) {
+                    assert.ok(Buffer.byteLength(block) <= max || Array.from(block).length === 1);
+                });
+            }));
     });
 });

@@ -221,8 +221,9 @@ exports.serveFile = function(fileId, mimetype, config, tg, callback) {
     .then(callback);
 };
 
-// A text of more than config.pasteMaxLines lines floods an IRC channel, also
-// at one line per second. Write the text to a file next to the media files and
+// A text of more than config.pasteMaxLines IRC lines floods an IRC channel,
+// also at one line per second. A long line counts as the PRIVMSG blocks that
+// it becomes. Write the text to a file next to the media files and
 // return the one line for IRC that links to it, or null if the text is short.
 // The file holds at most config.pasteMaxBytes bytes, so it starts with a BOM:
 // node-static sends text/plain with no charset.
@@ -230,8 +231,11 @@ exports.pasteLongText = function(text, config) {
     var lines = text.split('\n').filter(function(line) {
         return /\S/.test(line);
     });
+    var ircLines = lines.reduce(function(sum, line) {
+        return sum + M.splitBytes(line, M.IRC_LINE_BYTES).length;
+    }, 0);
     if (!config.showMedia || !config.pasteMaxLines ||
-        lines.length <= config.pasteMaxLines) {
+        ircLines <= config.pasteMaxLines) {
         return null;
     }
 
@@ -252,7 +256,9 @@ exports.pasteLongText = function(text, config) {
     var name = 'paste_' + exports.randomValueBase64(config.mediaRandomLength || 8) + '.txt';
     fs.writeFileSync(path.join(filesPath, name), '\uFEFF' + body);
 
-    return lines[0] + ' … (' + lines.length + ' lines) ' +
+    // Keep the first line short, so that the link stays on the same PRIVMSG.
+    var first = M.splitBytes(lines[0], M.IRC_LINE_BYTES / 2)[0];
+    return first + ' … (' + lines.length + ' lines) ' +
         config.httpLocation + '/' + name;
 };
 

@@ -329,8 +329,9 @@ var init = function(msgCallback) {
 
     // irc-framework sends at once and has no flood control, and a burst of
     // lines makes the server drop the connection (a 62-line message did, on
-    // 2026-11-07). So send one line per floodProtectionDelay. Every PRIVMSG
-    // must go through say().
+    // 2026-11-07). So send one PRIVMSG per floodProtectionDelay. Every PRIVMSG
+    // must go through say(), and say() cuts a long line itself, so that
+    // irc-framework never sends more than one PRIVMSG for a queued block.
     var queue = [];
     var timer = null;
     var drain = function() {
@@ -343,7 +344,9 @@ var init = function(msgCallback) {
         timer = setTimeout(drain, config.ircOptions.floodProtectionDelay);
     };
     var say = function(target, text) {
-        queue.push({target: target, text: text});
+        M.splitBytes(text, M.IRC_LINE_BYTES).forEach(function(block) {
+            queue.push({target: target, text: block});
+        });
         if (!timer) {
             drain();
         }

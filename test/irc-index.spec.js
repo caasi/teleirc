@@ -210,6 +210,46 @@ describe('irc/index', function() {
         };
     });
 
+    it('sends a long ASCII line as one PRIVMSG per delay', function(done) {
+        var times = [];
+        server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
+            if (message.text === 'ready') {
+                server.irc.send({channel: config.channels[0], text: 'a'.repeat(1000)}, true);
+            }
+        });
+        server.onPrivmsg = function(line) {
+            times.push(Date.now());
+            assert.ok(line.length - 'PRIVMSG #chan '.length <= 351, line.length);
+            if (times.length === 2) {
+                assert.ok(times[1] - times[0] >= 45, 'gap: ' + (times[1] - times[0]));
+                done();
+            }
+        };
+    });
+
+    it('cuts a long line into blocks of at most 350 bytes, one delay apart', function(done) {
+        var lines = [];
+        var times = [];
+        server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
+            if (message.text === 'ready') {
+                server.irc.send({channel: config.channels[0], text: '時'.repeat(300)}, true);
+            }
+        });
+        server.onPrivmsg = function(line) {
+            lines.push(line.replace(/^PRIVMSG #chan :?/, ''));
+            times.push(Date.now());
+            if (lines.length === 3) {
+                // 900 bytes in blocks of at most 350 bytes (116 characters).
+                assert.strictEqual(lines.join(''), '時'.repeat(300));
+                lines.forEach(function(text) {
+                    assert.ok(Buffer.byteLength(text) <= 350, Buffer.byteLength(text));
+                });
+                assert.ok(times[2] - times[1] >= 45, 'gap: ' + (times[2] - times[1]));
+                done();
+            }
+        };
+    });
+
     it('sends the lines of a long message one delay apart', function(done) {
         var times = [];
         server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
