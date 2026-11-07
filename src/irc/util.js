@@ -269,3 +269,50 @@ exports.checkIgnore = function(user, text) {
 
     return false;
 };
+
+// The PRIVMSG texts that send() gives for a message from Telegram, before
+// say() cuts them into blocks. The paste rule in tg/util counts these, so
+// that it decides on what IRC really gets: change the text only here.
+exports.ircLines = function(message, options) {
+    options = options || config;
+    var text = message.text;
+
+    // strip empty lines
+    text = text.replace(/^\s*\n/gm, '');
+
+    // simplify URLs
+    text = text.replace(/https?:\/\/\S*/g, function(match) {
+        return exports.parseUrl(match).url;
+    });
+
+    // replace newlines
+    text = text.replace(/\n/g, options.replaceNewlines);
+
+    // append the message id. A reaction has no message to reply to.
+    if (message.id && message.type !== 'reaction') {
+        text += ' $' + message.id;
+    }
+
+    // show a part of the reply message
+    var reply = message.original && message.original.reply_to_message;
+    if (reply && reply.text) {
+        var replyText = reply.text.replace(M.NICK_FORMAT, '');
+        if (replyText.match(/^\s*https?:\/\//)) {
+            text += ' <' + exports.parseUrl(replyText.match(/https?:\/\/\S*/)[0]).url + '>';
+        } else {
+            text += ' (' + M.snippet(replyText, 10, '…') + ')';
+        }
+    }
+
+    if (options.replaceNewlines.indexOf('\n') < 0) {
+        return [text];
+    }
+    // Each line gets the nick. A message that starts with a newline would
+    // give a line with only the nick, so empty lines are left out.
+    var username = text.slice(0, text.indexOf('>') + 2);
+    return text.slice(text.indexOf('>') + 2).split('\n').filter(function(line) {
+        return /\S/.test(line);
+    }).map(function(line) {
+        return username + line;
+    });
+};

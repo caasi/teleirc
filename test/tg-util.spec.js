@@ -269,6 +269,14 @@ describe('tg/util pasteLongText', function() {
         assert.strictEqual(paste('1\n2\n3\n4', joined), null);
     });
 
+    it('counts the nick that send() adds to each line', function() {
+        // Each line is 349 bytes; with '<alice> ' on every line, IRC gets
+        // 3 lines of 357 bytes: 6 blocks, not 3.
+        var a349 = 'a'.repeat(349);
+        var line = paste('<alice> ' + [a349, a349, a349].join('\n'), opts);
+        assert.match(line, /\(6 lines\)/);
+    });
+
     it('does not count the nick prefix as a line', function() {
         assert.strictEqual(paste('<a> \n1\n2\n3', opts), null);
         var line = paste('<a> \n1\n2\n3\n4', opts);
@@ -296,7 +304,7 @@ describe('tg/util pasteLongText', function() {
         assert.ok(Buffer.byteLength(readPaste(line)) <= 26);
         var options = Object.assign({}, opts, {pasteMaxBytes: 26});
         assert.strictEqual(tgUtil.pasteLongText('時時時時時時時時\n2\n3\n4', options).truncated, true);
-        assert.strictEqual(tgUtil.pasteLongText('1\n2\n3\n4', options).truncated, false);
+        assert.strictEqual(tgUtil.pasteLongText('<a> 1\n2\n3\n4', options).truncated, false);
     });
 });
 

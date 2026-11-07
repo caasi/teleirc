@@ -12,6 +12,7 @@ var os = require('os');
 var child_process = require('child_process');
 var Chan = require('../channels');
 var M = require('../message');
+var ircUtil = require('../irc/util');
 var mime = require('mime');
 
 var argv = require('../arguments').argv;
@@ -228,7 +229,7 @@ exports.serveFile = function(fileId, mimetype, config, tg, callback) {
 // the text was cut. Return null if the text is short.
 // The file holds at most config.pasteMaxBytes bytes, so it starts with a BOM:
 // node-static sends text/plain with no charset.
-exports.pasteLongText = function(text, config) {
+exports.pasteLongText = function(text, config, original) {
     var lines = text.split('\n').filter(function(line) {
         return /\S/.test(line);
     });
@@ -237,10 +238,9 @@ exports.pasteLongText = function(text, config) {
     if (lines.length > 1 && /^<[^>]*> ?$/.test(exports.stripIrcCodes(lines[0]))) {
         lines.splice(0, 2, lines[0] + lines[1]);
     }
-    // irc send() joins the lines with replaceNewlines unless it holds '\n'.
-    // Count the blocks of the text that it sends.
-    var sent = config.replaceNewlines.indexOf('\n') < 0 ?
-        [lines.join(config.replaceNewlines)] : lines;
+    // Count the blocks of what irc send() gives. The $id comes after this
+    // rule, so a placeholder of the same length stands in for it.
+    var sent = ircUtil.ircLines({text: text, id: '0000', original: original}, config);
     var ircLines = sent.reduce(function(sum, line) {
         return sum + M.splitBytes(line, M.IRC_LINE_BYTES).length;
     }, 0);

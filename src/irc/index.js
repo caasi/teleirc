@@ -362,8 +362,6 @@ var init = function(msgCallback) {
 
     return {
         send: function(message, multi) {
-            var text = '';
-
             if (multi) {
                 logger.verbose('<< relaying to IRC w/ multiple lines:', message.text);
                 message.text.split('\n').forEach(function(msg) {
@@ -372,45 +370,10 @@ var init = function(msgCallback) {
                 return;
             }
 
-            // strip empty lines
-            message.text = message.text.replace(/^\s*\n/gm, '');
-
-            // simplify URLs
-            message.text = message.text.replace(/https?:\/\/\S*/g, function(match) {
-                return ircUtil.parseUrl(match).url;
+            ircUtil.ircLines(message).forEach(function(line) {
+                logger.verbose('<< relaying to IRC:', line);
+                say(message.channel.ircChan, line);
             });
-
-            // replace newlines
-            message.text = message.text.replace(/\n/g, config.replaceNewlines);
-
-            // append the message id. A reaction has no message to reply to.
-            if (message && message.id && message.type !== 'reaction') {
-                message.text += ' $' + message.id;
-            }
-
-            // show a part of the reply message
-            if (message && message.original && message.original.reply_to_message &&
-                message.original.reply_to_message.text) {
-                text = message.original.reply_to_message.text.replace(M.NICK_FORMAT, '');
-                if (text.match(/^\s*https?:\/\//)) {
-                    message.text += ' <' +
-                        ircUtil.parseUrl(text.match(/https?:\/\/\S*/)[0]).url + '>';
-                } else {
-                    message.text += ' (' + M.snippet(text, 10, '…') + ')';
-                }
-            }
-
-            logger.verbose('<< relaying to IRC:', message.text);
-            if (config.replaceNewlines.indexOf('\n') < 0) {
-                logger.verbose('<< relaying to IRC:', message.text);
-                say(message.channel.ircChan, message.text);
-            } else {
-                var username = message.text.slice(0, message.text.indexOf('>') + 2);
-                var rest = message.text.slice(message.text.indexOf('>') + 2);
-                rest.split('\n').forEach(function(msg) {
-                    say(message.channel.ircChan, username + msg);
-                });
-            }
         },
         getNames: function(channel) {
             nodeIrc.who(channel.ircChan);
