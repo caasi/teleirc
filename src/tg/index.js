@@ -54,6 +54,9 @@ var init = function(msgCallback) {
                     var pasted = message.text && tgUtil.pasteLongText(message.text, config);
                     if (pasted) {
                         message.text = pasted;
+                    }
+                    // An edit makes a new paste, but the sender has the warning already.
+                    if (pasted && !msg.edit_date) {
                         tg.sendMessage(msg.chat.id, config.pasteWarning, {
                             reply_to_message_id: msg.message_id,
                             allow_sending_without_reply: true
