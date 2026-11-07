@@ -340,8 +340,9 @@ var init = function(msgCallback) {
             timer = null;
             return;
         }
-        nodeIrc.say(line.target, line.text);
+        // Set the timer first: if say() throws, the queue must still go on.
         timer = setTimeout(drain, config.ircOptions.floodProtectionDelay);
+        nodeIrc.say(line.target, line.text);
     };
     var say = function(target, text) {
         M.splitBytes(text, M.IRC_LINE_BYTES).forEach(function(block) {
