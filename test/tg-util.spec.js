@@ -124,6 +124,34 @@ describe('tg/util parseMsg media caption (#8)', function() {
         assert.strictEqual(relay({voice: {file_id: 'v', duration: 5}}),
                            '<alice> (Voice, 5s) http://files/v look');
     });
+
+    it('gives the nick prefix as a field, the same as the start of the text', function() {
+        var msg = {chat: {id: 1, type: 'group', title: 'TestGroup'},
+            from: {id: 2, first_name: 'Ann', last_name: 'Lee'},
+            date: Math.floor(Date.now() / 1000), text: 'one\ntwo'};
+        var got;
+        tgUtil.parseMsg(msg, {}, null, function(message) {
+            got = message;
+        });
+        assert.strictEqual(tgUtil.stripIrcCodes(got.prefix), '<Ann Lee> ');
+        assert.strictEqual(got.text.indexOf(got.prefix), 0);
+    });
+
+    it('gives no prefix where the text does not start with the nick', function() {
+        var prefixOf = function(fields) {
+            var msg = {chat: {id: 1, type: 'group', title: 'TestGroup'},
+                from: {id: 2, username: 'alice'}, date: Math.floor(Date.now() / 1000)};
+            Object.assign(msg, fields);
+            var got;
+            tgUtil.parseMsg(msg, {}, null, function(message) {
+                got = message;
+            });
+            return got.prefix;
+        };
+        assert.strictEqual(prefixOf({text: '/me waves'}), '');
+        assert.strictEqual(prefixOf({text: '/say #chan <alice> one\ntwo'}), '');
+        assert.strictEqual(prefixOf({new_chat_participant: {id: 3, username: 'bob'}}), '');
+    });
 });
 
 describe('tg/util parseReaction (#10)', function() {
@@ -230,8 +258,10 @@ describe('tg/util pasteLongText', function() {
         mediaRandomLength: 8, httpLocation: 'https://files.example', replaceNewlines: '\n'};
 
     // The IRC line of a paste, or null.
+    // Every text in these tests starts with the prefix of its nick.
     function paste(text, options) {
-        var result = tgUtil.pasteLongText(text, options);
+        var nick = text.match(/^<[^>]+> /);
+        var result = tgUtil.pasteLongText(text, options, undefined, nick ? nick[0] : '');
         return result && result.line;
     }
 

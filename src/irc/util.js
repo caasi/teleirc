@@ -307,10 +307,12 @@ exports.ircLines = function(message, options) {
     if (options.replaceNewlines.indexOf('\n') < 0) {
         return [text];
     }
-    // Each line gets the nick. A message that starts with a newline would
-    // give a line with only the nick, so empty lines are left out.
-    var username = text.slice(0, text.indexOf('>') + 2);
-    return text.slice(text.indexOf('>') + 2).split('\n').filter(function(line) {
+    // Each line gets the "<nick> " that tg/util put on message.prefix. It is
+    // never read back from the text: a display name can look like text and
+    // text like a name. A text with no prefix (soloUse, /broadcast) gets
+    // none. Empty lines are left out, so no line is only the nick.
+    var username = message.prefix && text.indexOf(message.prefix) === 0 ? message.prefix : '';
+    return text.slice(username.length).split('\n').filter(function(line) {
         return /\S/.test(line);
     }).map(function(line) {
         return username + line;

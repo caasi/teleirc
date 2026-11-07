@@ -229,18 +229,19 @@ exports.serveFile = function(fileId, mimetype, config, tg, callback) {
 // the text was cut. Return null if the text is short.
 // The file holds at most config.pasteMaxBytes bytes, so it starts with a BOM:
 // node-static sends text/plain with no charset.
-exports.pasteLongText = function(text, config, original) {
+exports.pasteLongText = function(text, config, original, prefix) {
     var lines = text.split('\n').filter(function(line) {
         return /\S/.test(line);
     });
     // A message that starts with a newline gives "<nick> " as a line of its
     // own. It is the prefix of the next line, not a line of the text.
-    if (lines.length > 1 && /^<[^>]*> ?$/.test(exports.stripIrcCodes(lines[0]))) {
+    if (prefix && lines.length > 1 && lines[0].trim() === prefix.trim()) {
         lines.splice(0, 2, lines[0] + lines[1]);
     }
     // Count the blocks of what irc send() gives. The $id comes after this
     // rule, so a placeholder of the same length stands in for it.
-    var sent = ircUtil.ircLines({text: text, id: '0000', original: original}, config);
+    var sent = ircUtil.ircLines({text: text, id: '0000', original: original, prefix: prefix},
+        config);
     var ircLines = sent.reduce(function(sum, line) {
         return sum + M.splitBytes(line, M.IRC_LINE_BYTES).length;
     }, 0);
@@ -408,6 +409,7 @@ function commandSay(msg, myUser, tg, callback) {
     return callback({
         channel: channel,
         cmd: 'broadcast',
+        prefix: '',
         text: text
     });
 }
@@ -468,6 +470,7 @@ exports.parseReaction = function(reaction, callback) {
     callback({
         channel: channel,
         type: 'reaction',
+        prefix: prefix,
         text: prefix + 'reacted ' + added.join('') + ' to ' + target
     });
 };
@@ -529,6 +532,18 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
     if (!config.soloUse) {
         prefix = '<' + exports.getName(msg.from, config) + '> ';
     }
+    // The text starts with the prefix, but a name can look like text and text
+    // like a name, so the prefix also goes on as a field: irc/util ircLines
+    // repeats it on each line, and must never guess it from the text. A path
+    // whose text does not start with the prefix (/me, /say, a member change)
+    // sets prefix '' itself.
+    var relay = callback;
+    callback = function(message) {
+        if (message && message.prefix === undefined) {
+            message.prefix = prefix;
+        }
+        return relay(message);
+    };
 
     if (msg.text && !msg.text.indexOf('/names')) {
         return callback({
@@ -565,6 +580,7 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
 
         return callback({
             channel: channel,
+            prefix: '',
             text: text
         });
     } else if (msg.text && !msg.text.indexOf('/say')) {
@@ -745,12 +761,14 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
     } else if (msg.new_chat_participant) {
         callback({
             channel: channel,
+            prefix: '',
             text: exports.getName(msg.new_chat_participant, config) +
                 ' was added by: ' + exports.getName(msg.from, config)
         });
     } else if (msg.left_chat_participant) {
         callback({
             channel: channel,
+            prefix: '',
             text: exports.getName(msg.left_chat_participant, config) +
                 ' was removed by: ' + exports.getName(msg.from, config)
         });
