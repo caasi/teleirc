@@ -266,10 +266,12 @@ describe('tg/util pasteLongText', function() {
     });
 
     it('cuts the file at pasteMaxBytes, between characters', function() {
-        // 時 is 3 bytes in UTF-8, so a cut at 10 bytes falls inside one.
-        var line = tgUtil.pasteLongText('時時時時\n2\n3\n4',
-            Object.assign({}, opts, {pasteMaxBytes: 10}));
+        // The BOM (3 bytes) and the mark (13 bytes) leave 10 bytes of the 26
+        // for the text. 時 is 3 bytes, so the cut at 10 falls inside one.
+        var line = tgUtil.pasteLongText('時時時時時時時時\n2\n3\n4',
+            Object.assign({}, opts, {pasteMaxBytes: 26}));
         assert.strictEqual(readPaste(line), '\uFEFF時時時\n[truncated]\n');
+        assert.ok(Buffer.byteLength(readPaste(line)) <= 26);
     });
 });
 

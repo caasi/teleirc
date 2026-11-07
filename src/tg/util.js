@@ -239,15 +239,17 @@ exports.pasteLongText = function(text, config) {
         return null;
     }
 
+    var BOM = '\uFEFF';
+    var MARK = '\n[truncated]\n';
     var bytes = Buffer.from(exports.stripIrcCodes(text));
     var body = bytes.toString();
-    if (bytes.length > config.pasteMaxBytes) {
+    if (Buffer.byteLength(BOM) + bytes.length > config.pasteMaxBytes) {
         // Cut before a UTF-8 continuation byte, never inside a character.
-        var end = config.pasteMaxBytes;
+        var end = Math.max(0, config.pasteMaxBytes - Buffer.byteLength(BOM + MARK));
         while (end > 0 && (bytes[end] & 0xC0) === 0x80) {
             end--;
         }
-        body = bytes.subarray(0, end).toString() + '\n[truncated]\n';
+        body = bytes.subarray(0, end).toString() + MARK;
     }
 
     var filesPath = path.join(chatIdsPath, 'files');
@@ -255,7 +257,7 @@ exports.pasteLongText = function(text, config) {
     try {
         // mkdirp 0.5 without a callback is async; the write must come after it.
         fs.mkdirSync(filesPath, {recursive: true});
-        fs.writeFileSync(path.join(filesPath, name), '\uFEFF' + body);
+        fs.writeFileSync(path.join(filesPath, name), BOM + body);
     } catch (err) {
         // The caller runs in the Telegram listener, where a throw stops the
         // bot. The text goes to IRC through the queue instead.

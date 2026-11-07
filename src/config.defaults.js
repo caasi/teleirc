@@ -121,6 +121,7 @@ config.ircQueueMax = 60;
 config.pasteMaxLines = 3;
 
 // The .txt file holds at most this many bytes; the rest of the text is cut.
+// Use at least 16: the BOM and the "[truncated]" mark take 16 bytes.
 // The bot never deletes a paste file, the same as a media file, and anyone
 // with the link can read it.
 config.pasteMaxBytes = 16384;
