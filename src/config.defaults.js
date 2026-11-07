@@ -134,8 +134,9 @@ config.pasteWarning = 'A message of more than %maxLines% lines goes to IRC only 
     'link. Please send long text as a paste.';
 
 // The bot adds this to pasteWarning when the text was longer than
-// pasteMaxBytes. %maxBytes% becomes the value of pasteMaxBytes.
-config.pasteCutWarning = ' The text was cut to %maxBytes% bytes.';
+// pasteMaxBytes, and sends it alone for an edit that was cut.
+// %maxBytes% becomes the value of pasteMaxBytes.
+config.pasteCutWarning = 'The text was cut to %maxBytes% bytes.';
 
 // Send message in text, markdown or html
 config.parseMode = '';

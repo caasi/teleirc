@@ -58,15 +58,20 @@ var init = function(msgCallback) {
                     if (pasted) {
                         message.text = pasted.line;
                     }
-                    // An edit makes a new paste, but the sender has the warning already.
+                    // An edit makes a new paste, but the sender has the paste
+                    // warning already. A cut is news for each version, because
+                    // the sender is responsible for the length.
+                    var warning = [];
                     if (pasted && !msg.edit_date) {
-                        var warning = config.pasteWarning
-                            .replace('%maxLines%', config.pasteMaxLines);
-                        if (pasted.truncated) {
-                            warning += config.pasteCutWarning
-                                .replace('%maxBytes%', config.pasteMaxBytes);
-                        }
-                        tg.sendMessage(msg.chat.id, warning, {
+                        warning.push(config.pasteWarning
+                            .replace('%maxLines%', config.pasteMaxLines));
+                    }
+                    if (pasted && pasted.truncated) {
+                        warning.push(config.pasteCutWarning
+                            .replace('%maxBytes%', config.pasteMaxBytes));
+                    }
+                    if (warning.length) {
+                        tg.sendMessage(msg.chat.id, warning.join(' '), {
                             reply_to_message_id: msg.message_id,
                             allow_sending_without_reply: true
                         }).catch(function(err) {
