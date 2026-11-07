@@ -91,10 +91,6 @@ function sentOf(chatId, tgId) {
     return sentMap[chatId + ':' + tgId];
 }
 
-function list() {
-    return messageMap;
-}
-
 function get(id) {
     return messageMap[id];
 }
@@ -108,6 +104,5 @@ module.exports = {
     snippet: snippet,
     pushSent: pushSent,
     sentOf: sentOf,
-    list: list,
     get: get
 };

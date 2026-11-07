@@ -253,3 +253,25 @@ describe('tg/util pasteLongText', function() {
         assert.strictEqual(readPaste(line), '﻿時時時\n[truncated]\n');
     });
 });
+
+describe('tg/util initHttpServer', function() {
+    it('does not serve the message map at /messages', function(done) {
+        var saved = {port: config.httpPort, host: config.httpHost, ext: config.externalWebServer};
+        config.httpPort = 0;
+        config.httpHost = '127.0.0.1';
+        config.externalWebServer = false;
+        var server = tgUtil.initHttpServer();
+        config.httpPort = saved.port;
+        config.httpHost = saved.host;
+        config.externalWebServer = saved.ext;
+        server.on('listening', function() {
+            require('http').get({host: '127.0.0.1', port: server.address().port,
+                path: '/messages'}, function(res) {
+                res.resume();
+                server.close();
+                assert.strictEqual(res.statusCode, 404);
+                done();
+            });
+        });
+    });
+});

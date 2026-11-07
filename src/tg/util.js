@@ -265,15 +265,11 @@ exports.initHttpServer = function() {
 
     var fileServer = new nodeStatic.Server(filesPath);
 
-    require('http').createServer(function(req, res) {
+    // Serve the files folder and nothing else: httpLocation is public, and
+    // the bot keeps the private messages of the chat outside this folder.
+    return require('http').createServer(function(req, res) {
         req.addListener('end', function() {
-            // show messages in JSON
-            if (req.url.match(/^\/messages\/?$/)) {
-                res.writeHead(200, {'Content-Type': 'application/json; charset=utf-8'});
-                res.end(JSON.stringify(M.list(), null, 2));
-            } else {
-                fileServer.serve(req, res);
-            }
+            fileServer.serve(req, res);
         }).resume();
     }).listen(config.httpPort, config.httpHost);
 };
