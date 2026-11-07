@@ -327,57 +327,57 @@ var init = function(msgCallback) {
         });
     });
 
+    // irc-framework sends at once and has no flood control, and a burst of
+    // lines makes the server drop the connection (a 62-line message did, on
+    // 2026-11-07). So send one PRIVMSG per floodProtectionDelay. Every PRIVMSG
+    // must go through say(), and say() cuts a long line itself, so that
+    // irc-framework never sends more than one PRIVMSG for a queued block.
+    var queue = [];
+    var timer = null;
+    var drain = function() {
+        var line = queue.shift();
+        if (!line) {
+            timer = null;
+            return;
+        }
+        // Set the timer first, so that the queue state stays right when a
+        // caller catches a throw from say().
+        timer = setTimeout(drain, config.ircOptions.floodProtectionDelay);
+        nodeIrc.say(line.target, line.text);
+    };
+    var say = function(target, text) {
+        // irc-framework writes the line to the socket as it is, and a server
+        // reads a CR or LF in it as the end of the command: the text after it
+        // would run as an IRC command. Text from Telegram is not trusted.
+        text = text.replace(/[\r\n]+/g, ' ');
+        M.splitBytes(text, M.IRC_LINE_BYTES).forEach(function(block) {
+            queue.push({target: target, text: block});
+        });
+        // A full queue keeps the newest lines: the oldest are the most out of
+        // date, and a line waits at most ircQueueMax * floodProtectionDelay.
+        var dropped = queue.splice(0, Math.max(0, queue.length - config.ircQueueMax));
+        if (dropped.length) {
+            logger.warn('IRC queue full, dropped ' + dropped.length + ' lines');
+        }
+        if (!timer) {
+            drain();
+        }
+    };
+
     return {
         send: function(message, multi) {
-            var text = '';
-
             if (multi) {
                 logger.verbose('<< relaying to IRC w/ multiple lines:', message.text);
                 message.text.split('\n').forEach(function(msg) {
-                    nodeIrc.say(message.channel.ircChan, msg);
+                    say(message.channel.ircChan, msg);
                 });
                 return;
             }
 
-            // strip empty lines
-            message.text = message.text.replace(/^\s*\n/gm, '');
-
-            // simplify URLs
-            message.text = message.text.replace(/https?:\/\/\S*/g, function(match) {
-                return ircUtil.parseUrl(match).url;
+            ircUtil.ircLines(message).forEach(function(line) {
+                logger.verbose('<< relaying to IRC:', line);
+                say(message.channel.ircChan, line);
             });
-
-            // replace newlines
-            message.text = message.text.replace(/\n/g, config.replaceNewlines);
-
-            // append the message id. A reaction has no message to reply to.
-            if (message && message.id && message.type !== 'reaction') {
-                message.text += ' $' + message.id;
-            }
-
-            // show a part of the reply message
-            if (message && message.original && message.original.reply_to_message &&
-                message.original.reply_to_message.text) {
-                text = message.original.reply_to_message.text.replace(M.NICK_FORMAT, '');
-                if (text.match(/^\s*https?:\/\//)) {
-                    message.text += ' <' +
-                        ircUtil.parseUrl(text.match(/https?:\/\/\S*/)[0]).url + '>';
-                } else {
-                    message.text += ' (' + M.snippet(text, 10, '…') + ')';
-                }
-            }
-
-            logger.verbose('<< relaying to IRC:', message.text);
-            if (config.replaceNewlines.indexOf('\n') < 0) {
-                logger.verbose('<< relaying to IRC:', message.text);
-                nodeIrc.say(message.channel.ircChan, message.text);
-            } else {
-                var username = message.text.slice(0, message.text.indexOf('>') + 2);
-                var rest = message.text.slice(message.text.indexOf('>') + 2);
-                rest.split('\n').forEach(function(msg) {
-                    nodeIrc.say(message.channel.ircChan, username + msg);
-                });
-            }
         },
         getNames: function(channel) {
             nodeIrc.who(channel.ircChan);

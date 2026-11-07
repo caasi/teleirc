@@ -12,6 +12,7 @@ var os = require('os');
 var child_process = require('child_process');
 var Chan = require('../channels');
 var M = require('../message');
+var ircUtil = require('../irc/util');
 var mime = require('mime');
 
 var argv = require('../arguments').argv;
@@ -221,6 +222,69 @@ exports.serveFile = function(fileId, mimetype, config, tg, callback) {
     .then(callback);
 };
 
+// A text of more than config.pasteMaxLines IRC lines floods an IRC channel,
+// also at one line per second. A long line counts as the PRIVMSG blocks that
+// it becomes. Write the text to a file next to the media files and
+// return {line, truncated}: the one line for IRC that links to it, and whether
+// the text was cut. Return null if the text is short.
+// The file holds at most config.pasteMaxBytes bytes, so it starts with a BOM:
+// node-static sends text/plain with no charset.
+exports.pasteLongText = function(text, config, original, prefix) {
+    var lines = text.split('\n').filter(function(line) {
+        return /\S/.test(line);
+    });
+    // A message that starts with a newline gives "<nick> " as a line of its
+    // own. It is the prefix of the next line, not a line of the text.
+    if (prefix && lines.length > 1 && lines[0].trim() === prefix.trim()) {
+        lines.splice(0, 2, lines[0] + lines[1]);
+    }
+    // Count the blocks of what irc send() gives. The $id comes after this
+    // rule, so a placeholder of the same length stands in for it.
+    var sent = ircUtil.ircLines({text: text, id: '0000', original: original, prefix: prefix},
+        config);
+    var ircLines = sent.reduce(function(sum, line) {
+        return sum + M.splitBytes(line, M.IRC_LINE_BYTES).length;
+    }, 0);
+    if (!config.showMedia || !config.pasteMaxLines ||
+        ircLines <= config.pasteMaxLines) {
+        return null;
+    }
+
+    var BOM = '\uFEFF';
+    var bytes = Buffer.from(exports.stripIrcCodes(text));
+    var body = bytes.toString();
+    // The file has no mark at the cut: the sender gets told in the warning.
+    var truncated = Buffer.byteLength(BOM) + bytes.length > config.pasteMaxBytes;
+    if (truncated) {
+        // Cut before a UTF-8 continuation byte, never inside a character.
+        var end = Math.max(0, config.pasteMaxBytes - Buffer.byteLength(BOM));
+        while (end > 0 && (bytes[end] & 0xC0) === 0x80) {
+            end--;
+        }
+        body = bytes.subarray(0, end).toString();
+    }
+
+    var filesPath = path.join(chatIdsPath, 'files');
+    var name = 'paste_' + exports.randomValueBase64(config.mediaRandomLength || 8) + '.txt';
+    try {
+        // mkdirp 0.5 without a callback is async; the write must come after it.
+        fs.mkdirSync(filesPath, {recursive: true});
+        fs.writeFileSync(path.join(filesPath, name), BOM + body);
+    } catch (err) {
+        // The caller runs in the Telegram listener, where a throw stops the
+        // bot. The text goes to IRC through the queue instead.
+        logger.error('paste write failed:', err);
+        return null;
+    }
+
+    // Keep the first line short, so that the link stays on the same PRIVMSG.
+    var first = M.splitBytes(lines[0], M.IRC_LINE_BYTES / 2)[0];
+    return {
+        line: first + ' … (' + ircLines + ' lines) ' + config.httpLocation + '/' + name,
+        truncated: truncated
+    };
+};
+
 exports.initHttpServer = function() {
     var filesPath = path.join(chatIdsPath, 'files');
     mkdirp(filesPath);
@@ -230,15 +294,11 @@ exports.initHttpServer = function() {
 
     var fileServer = new nodeStatic.Server(filesPath);
 
-    require('http').createServer(function(req, res) {
+    // Serve the files folder and nothing else: httpLocation is public, and
+    // the message map (messages.json) and chatids.json are outside it.
+    return require('http').createServer(function(req, res) {
         req.addListener('end', function() {
-            // show messages in JSON
-            if (req.url.match(/^\/messages\/?$/)) {
-                res.writeHead(200, {'Content-Type': 'application/json; charset=utf-8'});
-                res.end(JSON.stringify(M.list(), null, 2));
-            } else {
-                fileServer.serve(req, res);
-            }
+            fileServer.serve(req, res);
         }).resume();
     }).listen(config.httpPort, config.httpHost);
 };
@@ -349,6 +409,7 @@ function commandSay(msg, myUser, tg, callback) {
     return callback({
         channel: channel,
         cmd: 'broadcast',
+        prefix: '',
         text: text
     });
 }
@@ -409,6 +470,7 @@ exports.parseReaction = function(reaction, callback) {
     callback({
         channel: channel,
         type: 'reaction',
+        prefix: prefix,
         text: prefix + 'reacted ' + added.join('') + ' to ' + target
     });
 };
@@ -470,6 +532,18 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
     if (!config.soloUse) {
         prefix = '<' + exports.getName(msg.from, config) + '> ';
     }
+    // The text starts with the prefix, but a name can look like text and text
+    // like a name, so the prefix also goes on as a field: irc/util ircLines
+    // repeats it on each line, and must never guess it from the text. A path
+    // whose text does not start with the prefix (/me, /say, a member change)
+    // sets prefix '' itself.
+    var relay = callback;
+    callback = function(message) {
+        if (message && message.prefix === undefined) {
+            message.prefix = prefix;
+        }
+        return relay(message);
+    };
 
     if (msg.text && !msg.text.indexOf('/names')) {
         return callback({
@@ -506,6 +580,7 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
 
         return callback({
             channel: channel,
+            prefix: '',
             text: text
         });
     } else if (msg.text && !msg.text.indexOf('/say')) {
@@ -686,12 +761,14 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
     } else if (msg.new_chat_participant) {
         callback({
             channel: channel,
+            prefix: '',
             text: exports.getName(msg.new_chat_participant, config) +
                 ' was added by: ' + exports.getName(msg.from, config)
         });
     } else if (msg.left_chat_participant) {
         callback({
             channel: channel,
+            prefix: '',
             text: exports.getName(msg.left_chat_participant, config) +
                 ' was removed by: ' + exports.getName(msg.from, config)
         });

@@ -84,8 +84,11 @@ describe('irc/index', function() {
             channels: config.channels,
             relayIRCEvents: config.relayIRCEvents,
             parseMode: config.parseMode,
-            emNick: config.emNick
+            emNick: config.emNick,
+            floodProtectionDelay: config.ircOptions.floodProtectionDelay,
+            ircQueueMax: config.ircQueueMax
         };
+        config.ircOptions.floodProtectionDelay = 50;
     });
 
     after(function() {
@@ -94,12 +97,14 @@ describe('irc/index', function() {
         config.ircNick = saved.ircNick;
         config.ircPerformCmds = saved.ircPerformCmds;
         config.channels = saved.channels;
+        config.ircOptions.floodProtectionDelay = saved.floodProtectionDelay;
     });
 
     afterEach(function() {
         config.relayIRCEvents = saved.relayIRCEvents;
         config.parseMode = saved.parseMode;
         config.emNick = saved.emNick;
+        config.ircQueueMax = saved.ircQueueMax;
         if (server) {
             server.stop();
         }
@@ -202,6 +207,130 @@ describe('irc/index', function() {
                     'PRIVMSG #chan :<alice> reacted 👍 to $beef',
                     'PRIVMSG #chan :<alice> hi $cafe'
                 ]);
+                done();
+            }
+        };
+    });
+
+    it('sends a long ASCII line as one PRIVMSG per delay', function(done) {
+        var times = [];
+        server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
+            if (message.text === 'ready') {
+                server.irc.send({channel: config.channels[0], text: 'a'.repeat(1000)}, true);
+            }
+        });
+        server.onPrivmsg = function(line) {
+            times.push(Date.now());
+            assert.ok(line.length - 'PRIVMSG #chan '.length <= 351, line.length);
+            // 1000 characters are 3 blocks: 350, 350 and 300.
+            if (times.length === 3) {
+                assert.ok(times[1] - times[0] >= 45, 'gap 1: ' + (times[1] - times[0]));
+                assert.ok(times[2] - times[1] >= 45, 'gap 2: ' + (times[2] - times[1]));
+                done();
+            }
+        };
+    });
+
+    it('cuts a long line into blocks of at most 350 bytes, one delay apart', function(done) {
+        var lines = [];
+        var times = [];
+        server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
+            if (message.text === 'ready') {
+                server.irc.send({channel: config.channels[0], text: '時'.repeat(300)}, true);
+            }
+        });
+        server.onPrivmsg = function(line) {
+            lines.push(line.replace(/^PRIVMSG #chan :?/, ''));
+            times.push(Date.now());
+            if (lines.length === 3) {
+                // 900 bytes in blocks of at most 350 bytes (116 characters).
+                assert.strictEqual(lines.join(''), '時'.repeat(300));
+                lines.forEach(function(text) {
+                    assert.ok(Buffer.byteLength(text) <= 350, Buffer.byteLength(text));
+                });
+                assert.ok(times[2] - times[1] >= 45, 'gap: ' + (times[2] - times[1]));
+                done();
+            }
+        };
+    });
+
+    it('never writes a CR or LF inside a PRIVMSG', function(done) {
+        server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
+            if (message.text === 'ready') {
+                server.irc.send({channel: config.channels[0], text: 'hi\rQUIT :bye'}, true);
+            }
+        });
+        server.onPrivmsg = function(line) {
+            // The fake server splits on LF and strips one CR at the end, so a
+            // CR inside would show up here, and a LF would make a 2nd command.
+            assert.strictEqual(line, 'PRIVMSG #chan :hi QUIT :bye');
+            assert.ok(server.received.every(function(l) {
+                return l.indexOf('QUIT') !== 0;
+            }));
+            done();
+        };
+    });
+
+    it('drops the oldest lines when the queue is full', function(done) {
+        // afterEach gives the old value back, also when this test fails.
+        config.ircQueueMax = 2;
+        var lines = [];
+        server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
+            if (message.text === 'ready') {
+                // a goes out at once; b, c and d wait, and only 2 of them fit.
+                server.irc.send({channel: config.channels[0], text: 'a\nb\nc\nd'}, true);
+            }
+        });
+        server.onPrivmsg = function(line) {
+            lines.push(line);
+            if (lines.length === 3) {
+                // irc-framework writes no ':' before a one-word last parameter.
+                assert.deepStrictEqual(lines, ['PRIVMSG #chan a', 'PRIVMSG #chan c',
+                    'PRIVMSG #chan d']);
+                done();
+            }
+        };
+    });
+
+    it('paces two messages as one queue, and sends at once after it is idle',
+        function(done) {
+            var times = [];
+            var channel = config.channels[0];
+            server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
+                if (message.text === 'ready') {
+                    server.irc.send({channel: channel, text: 'a'}, true);
+                    server.irc.send({channel: channel, text: 'b'}, true);
+                    // After two delays the queue is idle again.
+                    setTimeout(function() {
+                        times.push('idle');
+                        server.irc.send({channel: channel, text: 'c'}, true);
+                    }, 150);
+                }
+            });
+            server.onPrivmsg = function() {
+                times.push(Date.now());
+                if (times.length === 4) {
+                    assert.ok(times[1] - times[0] >= 45, 'gap a-b: ' + (times[1] - times[0]));
+                    // c goes out at once, not one delay after the idle point.
+                    assert.ok(times[3] - times[1] < 200, 'c late: ' + (times[3] - times[1]));
+                    done();
+                }
+            };
+        });
+
+    it('sends the lines of a long message one delay apart', function(done) {
+        var times = [];
+        server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
+            if (message.text === 'ready') {
+                server.irc.send({channel: config.channels[0], text: 'a\nb\nc'}, true);
+            }
+        });
+        server.onPrivmsg = function() {
+            times.push(Date.now());
+            if (times.length === 3) {
+                // 45, not 50: a timer can fire a little early.
+                assert.ok(times[1] - times[0] >= 45, 'gap 1: ' + (times[1] - times[0]));
+                assert.ok(times[2] - times[1] >= 45, 'gap 2: ' + (times[2] - times[1]));
                 done();
             }
         };

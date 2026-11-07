@@ -124,6 +124,34 @@ describe('tg/util parseMsg media caption (#8)', function() {
         assert.strictEqual(relay({voice: {file_id: 'v', duration: 5}}),
                            '<alice> (Voice, 5s) http://files/v look');
     });
+
+    it('gives the nick prefix as a field, the same as the start of the text', function() {
+        var msg = {chat: {id: 1, type: 'group', title: 'TestGroup'},
+            from: {id: 2, first_name: 'Ann', last_name: 'Lee'},
+            date: Math.floor(Date.now() / 1000), text: 'one\ntwo'};
+        var got;
+        tgUtil.parseMsg(msg, {}, null, function(message) {
+            got = message;
+        });
+        assert.strictEqual(tgUtil.stripIrcCodes(got.prefix), '<Ann Lee> ');
+        assert.strictEqual(got.text.indexOf(got.prefix), 0);
+    });
+
+    it('gives no prefix where the text does not start with the nick', function() {
+        var prefixOf = function(fields) {
+            var msg = {chat: {id: 1, type: 'group', title: 'TestGroup'},
+                from: {id: 2, username: 'alice'}, date: Math.floor(Date.now() / 1000)};
+            Object.assign(msg, fields);
+            var got;
+            tgUtil.parseMsg(msg, {}, null, function(message) {
+                got = message;
+            });
+            return got.prefix;
+        };
+        assert.strictEqual(prefixOf({text: '/me waves'}), '');
+        assert.strictEqual(prefixOf({text: '/say #chan <alice> one\ntwo'}), '');
+        assert.strictEqual(prefixOf({new_chat_participant: {id: 3, username: 'bob'}}), '');
+    });
 });
 
 describe('tg/util parseReaction (#10)', function() {
@@ -219,5 +247,148 @@ describe('tg/util parseReaction (#10)', function() {
         M.push({id: '1234', type: 'reaction', original: {message_id: 900}});
         assert.strictEqual(M.idOf(900), 'beef');
         assert.strictEqual(M.get('1234'), undefined);
+    });
+});
+
+describe('tg/util pasteLongText', function() {
+    var fs = require('fs');
+    var path = require('path');
+    var home = require('./helpers/sandbox');
+    var opts = {showMedia: true, pasteMaxLines: 3, pasteMaxBytes: 16384,
+        mediaRandomLength: 8, httpLocation: 'https://files.example', replaceNewlines: '\n'};
+
+    // The IRC line of a paste, or null.
+    // Every text in these tests starts with the prefix of its nick.
+    function paste(text, options) {
+        var nick = text.match(/^<[^>]+> /);
+        var result = tgUtil.pasteLongText(text, options, undefined, nick ? nick[0] : '');
+        return result && result.line;
+    }
+
+    function readPaste(line) {
+        var name = line.split('https://files.example/')[1];
+        return fs.readFileSync(path.join(home, '.teleirc', 'files', name), 'utf8');
+    }
+
+    it('keeps a text of at most pasteMaxLines non-empty lines', function() {
+        assert.strictEqual(paste('<a> 1\n\n2\n3', opts), null);
+        assert.strictEqual(paste('<a> 1\n2\n3\n4',
+            Object.assign({}, opts, {showMedia: false})), null);
+    });
+
+    it('links a longer text, saved with a BOM', function() {
+        var line = paste('<a> 1\n2\n3\n4', opts);
+        assert.match(line, /^<a> 1 … \(4 lines\) https:\/\/files\.example\/paste_\w{8}\.txt$/);
+        assert.strictEqual(readPaste(line), '\uFEFF<a> 1\n2\n3\n4');
+    });
+
+    it('counts a long line as the IRC lines that it becomes', function() {
+        // '<a> ' and 600 時 are 1804 bytes: 6 IRC lines of at most 350 bytes.
+        var line = paste('<a> ' + '時'.repeat(600), opts);
+        assert.match(line, /… \(6 lines\) https:/);
+        assert.ok(Buffer.byteLength(line) < 400, Buffer.byteLength(line));
+    });
+
+    it('counts the blocks of the joined text when lines are joined', function() {
+        // Joined with ' … ', three lines of 300 bytes are 900+ bytes: 3 blocks.
+        var line300 = 'a'.repeat(300);
+        var text = [line300, line300, line300].join('\n');
+        assert.strictEqual(paste(text, opts), null);
+        var joined = Object.assign({}, opts, {replaceNewlines: ' … ', pasteMaxLines: 2});
+        assert.match(paste(text, joined), /\(3 lines\)/);
+        assert.strictEqual(paste('1\n2\n3\n4', joined), null);
+    });
+
+    it('counts the nick that send() adds to each line', function() {
+        // Each line is 349 bytes; with '<alice> ' on every line, IRC gets
+        // 3 lines of 357 bytes: 6 blocks, not 3.
+        var a349 = 'a'.repeat(349);
+        var line = paste('<alice> ' + [a349, a349, a349].join('\n'), opts);
+        assert.match(line, /\(6 lines\)/);
+    });
+
+    it('does not count the nick prefix as a line', function() {
+        assert.strictEqual(paste('<a> \n1\n2\n3', opts), null);
+        var line = paste('<a> \n1\n2\n3\n4', opts);
+        assert.match(line, /^<a> 1 … \(4 lines\) /);
+    });
+
+    it('returns null when the file cannot be written', function() {
+        var write = fs.writeFileSync;
+        fs.writeFileSync = function() {
+            throw new Error('ENOSPC');
+        };
+        try {
+            assert.strictEqual(paste('<a> 1\n2\n3\n4', opts), null);
+        } finally {
+            fs.writeFileSync = write;
+        }
+    });
+
+    it('cuts the file at pasteMaxBytes, between characters', function() {
+        // The BOM (3 bytes) leaves 23 bytes of the 26 for the text. 時 is
+        // 3 bytes, so the cut at 23 falls inside one: 7 are kept.
+        var line = paste('時時時時時時時時\n2\n3\n4',
+            Object.assign({}, opts, {pasteMaxBytes: 26}));
+        assert.strictEqual(readPaste(line), '\uFEFF時時時時時時時');
+        assert.ok(Buffer.byteLength(readPaste(line)) <= 26);
+        var options = Object.assign({}, opts, {pasteMaxBytes: 26});
+        assert.strictEqual(tgUtil.pasteLongText('時時時時時時時時\n2\n3\n4', options).truncated, true);
+        assert.strictEqual(tgUtil.pasteLongText('<a> 1\n2\n3\n4', options).truncated, false);
+    });
+});
+
+describe('tg/util initHttpServer', function() {
+    it('does not serve the message map at /messages', function(done) {
+        var saved = {port: config.httpPort, host: config.httpHost, ext: config.externalWebServer};
+        config.httpPort = 0;
+        config.httpHost = '127.0.0.1';
+        config.externalWebServer = false;
+        var server;
+        try {
+            server = tgUtil.initHttpServer();
+        } finally {
+            // Also when initHttpServer throws: later specs share this config.
+            config.httpPort = saved.port;
+            config.httpHost = saved.host;
+            config.externalWebServer = saved.ext;
+        }
+        var get = function(urlPath, callback) {
+            require('http').get({host: '127.0.0.1', port: server.address().port,
+                path: urlPath}, function(res) {
+                res.resume();
+                callback(res.statusCode);
+            });
+        };
+        server.on('listening', function() {
+            var line = tgUtil.pasteLongText('<a> 1\n2\n3\n4',
+                {showMedia: true, pasteMaxLines: 3, pasteMaxBytes: 99, httpLocation: '',
+                    replaceNewlines: '\n'});
+            get('/messages', function(status) {
+                assert.strictEqual(status, 404);
+                // A file in the folder is still served.
+                get(line.line.split(' ').pop(), function(fileStatus) {
+                    server.close();
+                    assert.strictEqual(fileStatus, 200);
+                    done();
+                });
+            });
+        });
+    });
+});
+
+describe('message splitBytes', function() {
+    var M = require('../src/message');
+
+    it('cuts between characters and keeps every character', function() {
+        var text = fc.string({unit: 'grapheme', maxLength: 200});
+        fc.assert(fc.property(text, fc.integer({min: 4, max: 50}),
+            function(text, max) {
+                var blocks = M.splitBytes(text, max);
+                assert.strictEqual(blocks.join(''), text);
+                blocks.forEach(function(block) {
+                    assert.ok(Buffer.byteLength(block) <= max || Array.from(block).length === 1);
+                });
+            }));
     });
 });

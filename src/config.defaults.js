@@ -111,6 +111,33 @@ config.usernameFallbackFormat = '%firstName% %lastName%';
 // Tip: you can set this to \n if you want them as separate messages on IRC
 config.replaceNewlines = ' … ';
 
+// At most this many lines wait to go to IRC, one per
+// ircOptions.floodProtectionDelay. When more arrive, the oldest are dropped.
+config.ircQueueMax = 60;
+
+// A Telegram message that would take more than this many IRC lines goes to
+// IRC as its first line and a link to a .txt file in the media folder. A
+// long line counts as the 350-byte lines that it becomes. It needs
+// showMedia. 0 turns it off.
+config.pasteMaxLines = 3;
+
+// The .txt file holds at most this many bytes, with a BOM of 3 bytes; the
+// rest of the text is cut, and the file has no mark at the cut. Use at
+// least 3: the BOM is always in the file.
+// The bot never deletes a paste file, the same as a media file, and anyone
+// with the link can read it.
+config.pasteMaxBytes = 16384;
+
+// The bot replies with this text, in the Telegram group, to a message that
+// went to IRC as a link. %maxLines% becomes the value of pasteMaxLines.
+config.pasteWarning = 'A message of more than %maxLines% lines goes to IRC only as a ' +
+    'link. Please send long text as a paste.';
+
+// The bot adds this to pasteWarning when the text was longer than
+// pasteMaxBytes, and sends it alone for an edit that was cut.
+// %maxBytes% becomes the value of pasteMaxBytes.
+config.pasteCutWarning = 'The text was cut to %maxBytes% bytes.';
+
 // Send message in text, markdown or html
 config.parseMode = '';
 

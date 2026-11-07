@@ -51,6 +51,33 @@ var init = function(msgCallback) {
 
                     message.original = msg;
                     message.protocol = 'tg';
+                    // A command (sendCommand, broadcast) is not chat text: its text
+                    // is what the bot runs or sends, so it must not become a link.
+                    var pasted = message.text && !message.cmd &&
+                        tgUtil.pasteLongText(message.text, config, msg, message.prefix);
+                    if (pasted) {
+                        message.text = pasted.line;
+                    }
+                    // An edit makes a new paste, but the sender has the paste
+                    // warning already. A cut is news for each version, because
+                    // the sender is responsible for the length.
+                    var warning = [];
+                    if (pasted && !msg.edit_date) {
+                        warning.push(config.pasteWarning
+                            .replace('%maxLines%', config.pasteMaxLines));
+                    }
+                    if (pasted && pasted.truncated) {
+                        warning.push(config.pasteCutWarning
+                            .replace('%maxBytes%', config.pasteMaxBytes));
+                    }
+                    if (warning.length) {
+                        tg.sendMessage(msg.chat.id, warning.join(' '), {
+                            reply_to_message_id: msg.message_id,
+                            allow_sending_without_reply: true
+                        }).catch(function(err) {
+                            logger.error('paste warning failed:', err);
+                        });
+                    }
                     msgCallback(message);
                 }
             };
