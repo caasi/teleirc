@@ -272,6 +272,32 @@ describe('irc/index', function() {
         };
     });
 
+    it('paces two messages as one queue, and sends at once after it is idle',
+        function(done) {
+            var times = [];
+            var channel = config.channels[0];
+            server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
+                if (message.text === 'ready') {
+                    server.irc.send({channel: channel, text: 'a'}, true);
+                    server.irc.send({channel: channel, text: 'b'}, true);
+                    // After two delays the queue is idle again.
+                    setTimeout(function() {
+                        times.push('idle');
+                        server.irc.send({channel: channel, text: 'c'}, true);
+                    }, 150);
+                }
+            });
+            server.onPrivmsg = function() {
+                times.push(Date.now());
+                if (times.length === 4) {
+                    assert.ok(times[1] - times[0] >= 45, 'gap a-b: ' + (times[1] - times[0]));
+                    // c goes out at once, not one delay after the idle point.
+                    assert.ok(times[3] - times[1] < 200, 'c late: ' + (times[3] - times[1]));
+                    done();
+                }
+            };
+        });
+
     it('sends the lines of a long message one delay apart', function(done) {
         var times = [];
         server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {

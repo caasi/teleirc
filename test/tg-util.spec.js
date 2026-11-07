@@ -291,13 +291,24 @@ describe('tg/util initHttpServer', function() {
         config.httpPort = saved.port;
         config.httpHost = saved.host;
         config.externalWebServer = saved.ext;
-        server.on('listening', function() {
+        var get = function(urlPath, callback) {
             require('http').get({host: '127.0.0.1', port: server.address().port,
-                path: '/messages'}, function(res) {
+                path: urlPath}, function(res) {
                 res.resume();
-                server.close();
-                assert.strictEqual(res.statusCode, 404);
-                done();
+                callback(res.statusCode);
+            });
+        };
+        server.on('listening', function() {
+            var line = tgUtil.pasteLongText('<a> 1\n2\n3\n4',
+                {showMedia: true, pasteMaxLines: 3, pasteMaxBytes: 99, httpLocation: ''});
+            get('/messages', function(status) {
+                assert.strictEqual(status, 404);
+                // A file in the folder is still served.
+                get(line.split(' ').pop(), function(fileStatus) {
+                    server.close();
+                    assert.strictEqual(fileStatus, 200);
+                    done();
+                });
             });
         });
     });
