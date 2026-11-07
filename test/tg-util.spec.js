@@ -227,7 +227,7 @@ describe('tg/util pasteLongText', function() {
     var path = require('path');
     var home = require('./helpers/sandbox');
     var opts = {showMedia: true, pasteMaxLines: 3, pasteMaxBytes: 16384,
-        mediaRandomLength: 8, httpLocation: 'https://files.example'};
+        mediaRandomLength: 8, httpLocation: 'https://files.example', replaceNewlines: '\n'};
 
     function readPaste(line) {
         var name = line.split('https://files.example/')[1];
@@ -251,6 +251,16 @@ describe('tg/util pasteLongText', function() {
         var line = tgUtil.pasteLongText('<a> ' + '時'.repeat(600), opts);
         assert.match(line, /… \(6 lines\) https:/);
         assert.ok(Buffer.byteLength(line) < 400, Buffer.byteLength(line));
+    });
+
+    it('counts the blocks of the joined text when lines are joined', function() {
+        // Joined with ' … ', three lines of 300 bytes are 900+ bytes: 3 blocks.
+        var line300 = 'a'.repeat(300);
+        var text = [line300, line300, line300].join('\n');
+        assert.strictEqual(tgUtil.pasteLongText(text, opts), null);
+        var joined = Object.assign({}, opts, {replaceNewlines: ' … ', pasteMaxLines: 2});
+        assert.match(tgUtil.pasteLongText(text, joined), /\(3 lines\)/);
+        assert.strictEqual(tgUtil.pasteLongText('1\n2\n3\n4', joined), null);
     });
 
     it('does not count the nick prefix as a line', function() {
@@ -300,7 +310,8 @@ describe('tg/util initHttpServer', function() {
         };
         server.on('listening', function() {
             var line = tgUtil.pasteLongText('<a> 1\n2\n3\n4',
-                {showMedia: true, pasteMaxLines: 3, pasteMaxBytes: 99, httpLocation: ''});
+                {showMedia: true, pasteMaxLines: 3, pasteMaxBytes: 99, httpLocation: '',
+                    replaceNewlines: '\n'});
             get('/messages', function(status) {
                 assert.strictEqual(status, 404);
                 // A file in the folder is still served.

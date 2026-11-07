@@ -236,7 +236,11 @@ exports.pasteLongText = function(text, config) {
     if (lines.length > 1 && /^<[^>]*> ?$/.test(exports.stripIrcCodes(lines[0]))) {
         lines.splice(0, 2, lines[0] + lines[1]);
     }
-    var ircLines = lines.reduce(function(sum, line) {
+    // irc send() joins the lines with replaceNewlines unless it holds '\n'.
+    // Count the blocks of the text that it sends.
+    var sent = config.replaceNewlines.indexOf('\n') < 0 ?
+        [lines.join(config.replaceNewlines)] : lines;
+    var ircLines = sent.reduce(function(sum, line) {
         return sum + M.splitBytes(line, M.IRC_LINE_BYTES).length;
     }, 0);
     if (!config.showMedia || !config.pasteMaxLines ||
