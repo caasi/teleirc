@@ -272,7 +272,7 @@ exports.pasteLongText = function(text, config) {
 
     // Keep the first line short, so that the link stays on the same PRIVMSG.
     var first = M.splitBytes(lines[0], M.IRC_LINE_BYTES / 2)[0];
-    return first + ' … (' + lines.length + ' lines) ' +
+    return first + ' … (' + ircLines + ' lines) ' +
         config.httpLocation + '/' + name;
 };
 

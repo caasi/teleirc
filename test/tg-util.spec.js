@@ -247,9 +247,9 @@ describe('tg/util pasteLongText', function() {
     });
 
     it('counts a long line as the IRC lines that it becomes', function() {
-        // 時 is 3 bytes, so 600 of them are 1800 bytes: 5 blocks of 400 bytes.
+        // '<a> ' and 600 時 are 1804 bytes: 6 IRC lines of at most 350 bytes.
         var line = tgUtil.pasteLongText('<a> ' + '時'.repeat(600), opts);
-        assert.match(line, /… \(1 lines\) https:/);
+        assert.match(line, /… \(6 lines\) https:/);
         assert.ok(Buffer.byteLength(line) < 400, Buffer.byteLength(line));
     });
 
