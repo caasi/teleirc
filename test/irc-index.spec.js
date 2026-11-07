@@ -84,8 +84,10 @@ describe('irc/index', function() {
             channels: config.channels,
             relayIRCEvents: config.relayIRCEvents,
             parseMode: config.parseMode,
-            emNick: config.emNick
+            emNick: config.emNick,
+            floodProtectionDelay: config.ircOptions.floodProtectionDelay
         };
+        config.ircOptions.floodProtectionDelay = 50;
     });
 
     after(function() {
@@ -94,6 +96,7 @@ describe('irc/index', function() {
         config.ircNick = saved.ircNick;
         config.ircPerformCmds = saved.ircPerformCmds;
         config.channels = saved.channels;
+        config.ircOptions.floodProtectionDelay = saved.floodProtectionDelay;
     });
 
     afterEach(function() {
@@ -202,6 +205,24 @@ describe('irc/index', function() {
                     'PRIVMSG #chan :<alice> reacted 👍 to $beef',
                     'PRIVMSG #chan :<alice> hi $cafe'
                 ]);
+                done();
+            }
+        };
+    });
+
+    it('sends the lines of a long message one delay apart', function(done) {
+        var times = [];
+        server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
+            if (message.text === 'ready') {
+                server.irc.send({channel: config.channels[0], text: 'a\nb\nc'}, true);
+            }
+        });
+        server.onPrivmsg = function() {
+            times.push(Date.now());
+            if (times.length === 3) {
+                // 45, not 50: a timer can fire a little early.
+                assert.ok(times[1] - times[0] >= 45, 'gap 1: ' + (times[1] - times[0]));
+                assert.ok(times[2] - times[1] >= 45, 'gap 2: ' + (times[2] - times[1]));
                 done();
             }
         };

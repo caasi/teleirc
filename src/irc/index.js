@@ -327,6 +327,28 @@ var init = function(msgCallback) {
         });
     });
 
+    // irc-framework sends at once and has no flood control, and a burst of
+    // lines makes the server drop the connection (a 62-line message did, on
+    // 2026-11-07). So send one line per floodProtectionDelay. Every PRIVMSG
+    // must go through say().
+    var queue = [];
+    var timer = null;
+    var drain = function() {
+        var line = queue.shift();
+        if (!line) {
+            timer = null;
+            return;
+        }
+        nodeIrc.say(line.target, line.text);
+        timer = setTimeout(drain, config.ircOptions.floodProtectionDelay);
+    };
+    var say = function(target, text) {
+        queue.push({target: target, text: text});
+        if (!timer) {
+            drain();
+        }
+    };
+
     return {
         send: function(message, multi) {
             var text = '';
@@ -334,7 +356,7 @@ var init = function(msgCallback) {
             if (multi) {
                 logger.verbose('<< relaying to IRC w/ multiple lines:', message.text);
                 message.text.split('\n').forEach(function(msg) {
-                    nodeIrc.say(message.channel.ircChan, msg);
+                    say(message.channel.ircChan, msg);
                 });
                 return;
             }
@@ -370,12 +392,12 @@ var init = function(msgCallback) {
             logger.verbose('<< relaying to IRC:', message.text);
             if (config.replaceNewlines.indexOf('\n') < 0) {
                 logger.verbose('<< relaying to IRC:', message.text);
-                nodeIrc.say(message.channel.ircChan, message.text);
+                say(message.channel.ircChan, message.text);
             } else {
                 var username = message.text.slice(0, message.text.indexOf('>') + 2);
                 var rest = message.text.slice(message.text.indexOf('>') + 2);
                 rest.split('\n').forEach(function(msg) {
-                    nodeIrc.say(message.channel.ircChan, username + msg);
+                    say(message.channel.ircChan, username + msg);
                 });
             }
         },
