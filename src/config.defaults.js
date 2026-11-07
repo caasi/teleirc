@@ -127,8 +127,8 @@ config.pasteMaxLines = 3;
 config.pasteMaxBytes = 16384;
 
 // The bot replies with this text, in the Telegram group, to a message that
-// went to IRC as a link.
-config.pasteWarning = 'A message of more than 3 lines goes to IRC only as a ' +
+// went to IRC as a link. %maxLines% becomes the value of pasteMaxLines.
+config.pasteWarning = 'A message of more than %maxLines% lines goes to IRC only as a ' +
     'link. Please send long text as a paste.';
 
 // Send message in text, markdown or html

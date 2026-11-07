@@ -57,7 +57,9 @@ var init = function(msgCallback) {
                     }
                     // An edit makes a new paste, but the sender has the warning already.
                     if (pasted && !msg.edit_date) {
-                        tg.sendMessage(msg.chat.id, config.pasteWarning, {
+                        var warning = config.pasteWarning
+                            .replace('%maxLines%', config.pasteMaxLines);
+                        tg.sendMessage(msg.chat.id, warning, {
                             reply_to_message_id: msg.message_id,
                             allow_sending_without_reply: true
                         }).catch(function(err) {
