@@ -111,6 +111,10 @@ config.usernameFallbackFormat = '%firstName% %lastName%';
 // Tip: you can set this to \n if you want them as separate messages on IRC
 config.replaceNewlines = ' … ';
 
+// At most this many lines wait to go to IRC, one per
+// ircOptions.floodProtectionDelay. When more arrive, the oldest are dropped.
+config.ircQueueMax = 60;
+
 // A Telegram message of more than this many non-empty lines goes to IRC as
 // its first line and a link to a .txt file in the media folder. It needs
 // showMedia. 0 turns it off.

@@ -347,6 +347,12 @@ var init = function(msgCallback) {
         M.splitBytes(text, M.IRC_LINE_BYTES).forEach(function(block) {
             queue.push({target: target, text: block});
         });
+        // A full queue keeps the newest lines: the oldest are the most out of
+        // date, and a line waits at most ircQueueMax * floodProtectionDelay.
+        var dropped = queue.splice(0, Math.max(0, queue.length - config.ircQueueMax));
+        if (dropped.length) {
+            logger.warn('IRC queue full, dropped ' + dropped.length + ' lines');
+        }
         if (!timer) {
             drain();
         }

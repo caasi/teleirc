@@ -250,6 +250,28 @@ describe('irc/index', function() {
         };
     });
 
+    it('drops the oldest lines when the queue is full', function(done) {
+        var savedMax = config.ircQueueMax;
+        config.ircQueueMax = 2;
+        var lines = [];
+        server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
+            if (message.text === 'ready') {
+                // a goes out at once; b, c and d wait, and only 2 of them fit.
+                server.irc.send({channel: config.channels[0], text: 'a\nb\nc\nd'}, true);
+            }
+        });
+        server.onPrivmsg = function(line) {
+            lines.push(line);
+            if (lines.length === 3) {
+                config.ircQueueMax = savedMax;
+                // irc-framework writes no ':' before a one-word last parameter.
+                assert.deepStrictEqual(lines, ['PRIVMSG #chan a', 'PRIVMSG #chan c',
+                    'PRIVMSG #chan d']);
+                done();
+            }
+        };
+    });
+
     it('sends the lines of a long message one delay apart', function(done) {
         var times = [];
         server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
