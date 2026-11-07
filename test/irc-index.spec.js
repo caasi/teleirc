@@ -252,6 +252,23 @@ describe('irc/index', function() {
         };
     });
 
+    it('never writes a CR or LF inside a PRIVMSG', function(done) {
+        server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
+            if (message.text === 'ready') {
+                server.irc.send({channel: config.channels[0], text: 'hi\rQUIT :bye'}, true);
+            }
+        });
+        server.onPrivmsg = function(line) {
+            // The fake server splits on LF and strips one CR at the end, so a
+            // CR inside would show up here, and a LF would make a 2nd command.
+            assert.strictEqual(line, 'PRIVMSG #chan :hi QUIT :bye');
+            assert.ok(server.received.every(function(l) {
+                return l.indexOf('QUIT') !== 0;
+            }));
+            done();
+        };
+    });
+
     it('drops the oldest lines when the queue is full', function(done) {
         var savedMax = config.ircQueueMax;
         config.ircQueueMax = 2;

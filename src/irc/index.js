@@ -346,6 +346,10 @@ var init = function(msgCallback) {
         nodeIrc.say(line.target, line.text);
     };
     var say = function(target, text) {
+        // irc-framework writes the line to the socket as it is, and a server
+        // reads a CR or LF in it as the end of the command: the text after it
+        // would run as an IRC command. Text from Telegram is not trusted.
+        text = text.replace(/[\r\n]+/g, ' ');
         M.splitBytes(text, M.IRC_LINE_BYTES).forEach(function(block) {
             queue.push({target: target, text: block});
         });
