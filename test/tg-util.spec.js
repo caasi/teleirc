@@ -253,6 +253,18 @@ describe('tg/util pasteLongText', function() {
         assert.ok(Buffer.byteLength(line) < 400, Buffer.byteLength(line));
     });
 
+    it('returns null when the file cannot be written', function() {
+        var write = fs.writeFileSync;
+        fs.writeFileSync = function() {
+            throw new Error('ENOSPC');
+        };
+        try {
+            assert.strictEqual(tgUtil.pasteLongText('<a> 1\n2\n3\n4', opts), null);
+        } finally {
+            fs.writeFileSync = write;
+        }
+    });
+
     it('cuts the file at pasteMaxBytes, between characters', function() {
         // 時 is 3 bytes in UTF-8, so a cut at 10 bytes falls inside one.
         var line = tgUtil.pasteLongText('時時時時\n2\n3\n4',

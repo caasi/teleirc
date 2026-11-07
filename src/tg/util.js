@@ -251,10 +251,17 @@ exports.pasteLongText = function(text, config) {
     }
 
     var filesPath = path.join(chatIdsPath, 'files');
-    // mkdirp 0.5 without a callback is async; the write must come after it.
-    fs.mkdirSync(filesPath, {recursive: true});
     var name = 'paste_' + exports.randomValueBase64(config.mediaRandomLength || 8) + '.txt';
-    fs.writeFileSync(path.join(filesPath, name), '\uFEFF' + body);
+    try {
+        // mkdirp 0.5 without a callback is async; the write must come after it.
+        fs.mkdirSync(filesPath, {recursive: true});
+        fs.writeFileSync(path.join(filesPath, name), '\uFEFF' + body);
+    } catch (err) {
+        // The caller runs in the Telegram listener, where a throw stops the
+        // bot. The text goes to IRC through the queue instead.
+        logger.error('paste write failed:', err);
+        return null;
+    }
 
     // Keep the first line short, so that the link stays on the same PRIVMSG.
     var first = M.splitBytes(lines[0], M.IRC_LINE_BYTES / 2)[0];
