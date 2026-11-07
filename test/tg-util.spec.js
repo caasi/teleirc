@@ -158,6 +158,12 @@ describe('tg/util parseMsg media caption (#8)', function() {
             'one');
         assert.strictEqual(contentOf({document: {file_id: 'd'}, caption: 'look'}), 'look');
         // A hidden link keeps its URL, in the same form as on IRC.
+        // Two links: the second must move by the length of what the first added.
+        var two = [{type: 'text_link', offset: 0, length: 1, url: 'https://a.example/'},
+            {type: 'text_link', offset: 2, length: 1, url: 'https://b.example/'},
+            {type: 'code', offset: 4, length: 1}];
+        assert.strictEqual(contentOf({text: 'a b c', entities: two}),
+            '[a](https://a.example/) [b](https://b.example/) `c`');
         var link = {type: 'text_link', offset: 4, length: 4, url: 'https://x.example/p'};
         assert.strictEqual(contentOf({text: 'see here', entities: [link]}),
             'see [here](https://x.example/p)');
