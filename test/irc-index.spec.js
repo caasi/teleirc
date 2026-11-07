@@ -85,7 +85,8 @@ describe('irc/index', function() {
             relayIRCEvents: config.relayIRCEvents,
             parseMode: config.parseMode,
             emNick: config.emNick,
-            floodProtectionDelay: config.ircOptions.floodProtectionDelay
+            floodProtectionDelay: config.ircOptions.floodProtectionDelay,
+            ircQueueMax: config.ircQueueMax
         };
         config.ircOptions.floodProtectionDelay = 50;
     });
@@ -103,6 +104,7 @@ describe('irc/index', function() {
         config.relayIRCEvents = saved.relayIRCEvents;
         config.parseMode = saved.parseMode;
         config.emNick = saved.emNick;
+        config.ircQueueMax = saved.ircQueueMax;
         if (server) {
             server.stop();
         }
@@ -270,7 +272,7 @@ describe('irc/index', function() {
     });
 
     it('drops the oldest lines when the queue is full', function(done) {
-        var savedMax = config.ircQueueMax;
+        // afterEach gives the old value back, also when this test fails.
         config.ircQueueMax = 2;
         var lines = [];
         server = startBridge([':erin!e@h NOTICE #chan :ready'], function(message) {
@@ -282,7 +284,6 @@ describe('irc/index', function() {
         server.onPrivmsg = function(line) {
             lines.push(line);
             if (lines.length === 3) {
-                config.ircQueueMax = savedMax;
                 // irc-framework writes no ':' before a one-word last parameter.
                 assert.deepStrictEqual(lines, ['PRIVMSG #chan a', 'PRIVMSG #chan c',
                     'PRIVMSG #chan d']);

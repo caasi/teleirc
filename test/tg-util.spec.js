@@ -344,10 +344,15 @@ describe('tg/util initHttpServer', function() {
         config.httpPort = 0;
         config.httpHost = '127.0.0.1';
         config.externalWebServer = false;
-        var server = tgUtil.initHttpServer();
-        config.httpPort = saved.port;
-        config.httpHost = saved.host;
-        config.externalWebServer = saved.ext;
+        var server;
+        try {
+            server = tgUtil.initHttpServer();
+        } finally {
+            // Also when initHttpServer throws: later specs share this config.
+            config.httpPort = saved.port;
+            config.httpHost = saved.host;
+            config.externalWebServer = saved.ext;
+        }
         var get = function(urlPath, callback) {
             require('http').get({host: '127.0.0.1', port: server.address().port,
                 path: urlPath}, function(res) {
