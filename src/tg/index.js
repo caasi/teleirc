@@ -54,7 +54,7 @@ var init = function(msgCallback) {
                     // A command (sendCommand, broadcast) is not chat text: its text
                     // is what the bot runs or sends, so it must not become a link.
                     var pasted = message.text && !message.cmd &&
-                        tgUtil.pasteLongText(message.text, config, msg, message.prefix);
+                        tgUtil.pasteLongText(message, config);
                     if (pasted) {
                         message.text = pasted.line;
                     }
