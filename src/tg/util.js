@@ -337,7 +337,7 @@ var reconstructMarkdown = function(msg) {
                 end = msg.text.substr(entity.offset + entity.length);
 
                 msg.text = pre + '[' + txt + ']' + '(' + entity.url + ')' + end;
-                incrementOffsets(entity.offset, 4 + entity.url);
+                incrementOffsets(entity.offset, 4 + entity.url.length);
                 break;
             case 'code': // ` code
                 pre = msg.text.substr(0, entity.offset);
