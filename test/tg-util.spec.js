@@ -157,6 +157,10 @@ describe('tg/util parseMsg media caption (#8)', function() {
         assert.strictEqual(contentOf({text: 'one', forward_from: {id: 4, username: 'dave'}}),
             'one');
         assert.strictEqual(contentOf({document: {file_id: 'd'}, caption: 'look'}), 'look');
+        // A hidden link keeps its URL, in the same form as on IRC.
+        var link = {type: 'text_link', offset: 4, length: 4, url: 'https://x.example/p'};
+        assert.strictEqual(contentOf({text: 'see here', entities: [link]}),
+            'see [here](https://x.example/p)');
     });
 
     it('gives no prefix where the text does not start with the nick', function() {

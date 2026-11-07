@@ -477,6 +477,7 @@ exports.parseReaction = function(reaction, callback) {
         channel: channel,
         type: 'reaction',
         prefix: prefix,
+        content: 'reacted ' + added.join('') + ' to ' + target,
         text: prefix + 'reacted ' + added.join('') + ' to ' + target
     });
 };
@@ -606,6 +607,8 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
 
     if (msg.text) {
         reconstructMarkdown(msg);
+        // Keep the URL of a hidden link, but not the edit mark below.
+        content = msg.text;
     }
 
     if (msg.edit_date && msg.text) {
