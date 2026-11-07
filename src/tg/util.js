@@ -286,7 +286,7 @@ exports.initHttpServer = function() {
     var fileServer = new nodeStatic.Server(filesPath);
 
     // Serve the files folder and nothing else: httpLocation is public, and
-    // the bot keeps the private messages of the chat outside this folder.
+    // the message map (messages.json) and chatids.json are outside it.
     return require('http').createServer(function(req, res) {
         req.addListener('end', function() {
             fileServer.serve(req, res);
