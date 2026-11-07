@@ -115,8 +115,9 @@ config.replaceNewlines = ' … ';
 // ircOptions.floodProtectionDelay. When more arrive, the oldest are dropped.
 config.ircQueueMax = 60;
 
-// A Telegram message of more than this many non-empty lines goes to IRC as
-// its first line and a link to a .txt file in the media folder. It needs
+// A Telegram message that would take more than this many IRC lines goes to
+// IRC as its first line and a link to a .txt file in the media folder. A
+// long line counts as the 350-byte lines that it becomes. It needs
 // showMedia. 0 turns it off.
 config.pasteMaxLines = 3;
 

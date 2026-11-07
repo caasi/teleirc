@@ -340,7 +340,8 @@ var init = function(msgCallback) {
             timer = null;
             return;
         }
-        // Set the timer first: if say() throws, the queue must still go on.
+        // Set the timer first, so that the queue state stays right when a
+        // caller catches a throw from say().
         timer = setTimeout(drain, config.ircOptions.floodProtectionDelay);
         nodeIrc.say(line.target, line.text);
     };
