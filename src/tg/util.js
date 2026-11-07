@@ -229,7 +229,9 @@ exports.serveFile = function(fileId, mimetype, config, tg, callback) {
 // the text was cut. Return null if the text is short.
 // The file holds at most config.pasteMaxBytes bytes, so it starts with a BOM:
 // node-static sends text/plain with no charset.
-exports.pasteLongText = function(text, config, original, prefix) {
+exports.pasteLongText = function(message, config) {
+    var text = message.text;
+    var prefix = message.prefix;
     var lines = text.split('\n').filter(function(line) {
         return /\S/.test(line);
     });
@@ -240,8 +242,8 @@ exports.pasteLongText = function(text, config, original, prefix) {
     }
     // Count the blocks of what irc send() gives. The $id comes after this
     // rule, so a placeholder of the same length stands in for it.
-    var sent = ircUtil.ircLines({text: text, id: '0000', original: original, prefix: prefix},
-        config);
+    var sent = ircUtil.ircLines({text: text, id: '0000', original: message.original,
+        prefix: prefix}, config);
     var ircLines = sent.reduce(function(sum, line) {
         return sum + M.splitBytes(line, M.IRC_LINE_BYTES).length;
     }, 0);
@@ -251,8 +253,12 @@ exports.pasteLongText = function(text, config, original, prefix) {
     }
 
     var BOM = '\uFEFF';
-    var bytes = Buffer.from(exports.stripIrcCodes(text));
-    var body = bytes.toString();
+    // The file holds only what the sender wrote (message.content): no nick,
+    // no reply or forward header, no edit mark. The IRC line keeps those, and
+    // a public file must not name who posted it.
+    var body = message.content || '';
+    var bytes = Buffer.from(exports.stripIrcCodes(body));
+    body = bytes.toString();
     // The file has no mark at the cut: the sender gets told in the warning.
     var truncated = Buffer.byteLength(BOM) + bytes.length > config.pasteMaxBytes;
     if (truncated) {
@@ -471,6 +477,7 @@ exports.parseReaction = function(reaction, callback) {
         channel: channel,
         type: 'reaction',
         prefix: prefix,
+        content: 'reacted ' + added.join('') + ' to ' + target,
         text: prefix + 'reacted ' + added.join('') + ' to ' + target
     });
 };
@@ -537,10 +544,16 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
     // repeats it on each line, and must never guess it from the text. A path
     // whose text does not start with the prefix (/me, /say, a member change)
     // sets prefix '' itself.
+    // The same for the content: what the sender wrote, without the headers
+    // that the IRC text gets. Taken here, before an edit gets its mark.
+    var content = msg.text !== undefined ? msg.text : (msg.caption || '');
     var relay = callback;
     callback = function(message) {
         if (message && message.prefix === undefined) {
             message.prefix = prefix;
+        }
+        if (message && message.content === undefined) {
+            message.content = content;
         }
         return relay(message);
     };
@@ -576,11 +589,13 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
         text.shift();
         text = text.join(' ');
 
+        var action = text;
         text = '* ' + exports.getName(msg.from, config) + ' ' + text;
 
         return callback({
             channel: channel,
             prefix: '',
+            content: action,
             text: text
         });
     } else if (msg.text && !msg.text.indexOf('/say')) {
@@ -592,6 +607,8 @@ exports.parseMsg = function(msg, myUser, tg, callback) {
 
     if (msg.text) {
         reconstructMarkdown(msg);
+        // Keep the URL of a hidden link, but not the edit mark below.
+        content = msg.text;
     }
 
     if (msg.edit_date && msg.text) {

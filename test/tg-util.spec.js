@@ -137,6 +137,32 @@ describe('tg/util parseMsg media caption (#8)', function() {
         assert.strictEqual(got.text.indexOf(got.prefix), 0);
     });
 
+    it('gives as content only what the sender wrote', function() {
+        var contentOf = function(fields) {
+            var msg = {chat: {id: 1, type: 'group', title: 'TestGroup'},
+                from: {id: 2, username: 'alice'}, date: Math.floor(Date.now() / 1000)};
+            Object.assign(msg, fields);
+            var got;
+            tgUtil.parseMsg(msg, {username: 'bot'}, null, function(message) {
+                got = message;
+            });
+            return got.content;
+        };
+        assert.strictEqual(contentOf({text: 'one\ntwo'}), 'one\ntwo');
+        assert.strictEqual(contentOf({text: '/me waves\nagain'}), 'waves\nagain');
+        assert.strictEqual(contentOf({text: 'one', edit_date: Math.floor(Date.now() / 1000)}),
+            'one');
+        assert.strictEqual(contentOf({text: 'one', reply_to_message: {text: 'secret',
+            from: {id: 3, username: 'carol'}}}), 'one');
+        assert.strictEqual(contentOf({text: 'one', forward_from: {id: 4, username: 'dave'}}),
+            'one');
+        assert.strictEqual(contentOf({document: {file_id: 'd'}, caption: 'look'}), 'look');
+        // A hidden link keeps its URL, in the same form as on IRC.
+        var link = {type: 'text_link', offset: 4, length: 4, url: 'https://x.example/p'};
+        assert.strictEqual(contentOf({text: 'see here', entities: [link]}),
+            'see [here](https://x.example/p)');
+    });
+
     it('gives no prefix where the text does not start with the nick', function() {
         var prefixOf = function(fields) {
             var msg = {chat: {id: 1, type: 'group', title: 'TestGroup'},
@@ -258,10 +284,16 @@ describe('tg/util pasteLongText', function() {
         mediaRandomLength: 8, httpLocation: 'https://files.example', replaceNewlines: '\n'};
 
     // The IRC line of a paste, or null.
-    // Every text in these tests starts with the prefix of its nick.
-    function paste(text, options) {
+    // A message as parseMsg gives it: the text for IRC starts with the nick,
+    // and the content is the rest.
+    function message(text) {
         var nick = text.match(/^<[^>]+> /);
-        var result = tgUtil.pasteLongText(text, options, undefined, nick ? nick[0] : '');
+        var prefix = nick ? nick[0] : '';
+        return {text: text, prefix: prefix, content: text.slice(prefix.length)};
+    }
+
+    function paste(text, options) {
+        var result = tgUtil.pasteLongText(message(text), options);
         return result && result.line;
     }
 
@@ -279,7 +311,8 @@ describe('tg/util pasteLongText', function() {
     it('links a longer text, saved with a BOM', function() {
         var line = paste('<a> 1\n2\n3\n4', opts);
         assert.match(line, /^<a> 1 … \(4 lines\) https:\/\/files\.example\/paste_\w{8}\.txt$/);
-        assert.strictEqual(readPaste(line), '\uFEFF<a> 1\n2\n3\n4');
+        // The nick stays on the IRC line, not in the file.
+        assert.strictEqual(readPaste(line), '\uFEFF1\n2\n3\n4');
     });
 
     it('counts a long line as the IRC lines that it becomes', function() {
@@ -333,8 +366,10 @@ describe('tg/util pasteLongText', function() {
         assert.strictEqual(readPaste(line), '\uFEFF時時時時時時時');
         assert.ok(Buffer.byteLength(readPaste(line)) <= 26);
         var options = Object.assign({}, opts, {pasteMaxBytes: 26});
-        assert.strictEqual(tgUtil.pasteLongText('時時時時時時時時\n2\n3\n4', options).truncated, true);
-        assert.strictEqual(tgUtil.pasteLongText('<a> 1\n2\n3\n4', options).truncated, false);
+        assert.strictEqual(tgUtil.pasteLongText(message('時時時時時時時時\n2\n3\n4'), options)
+            .truncated, true);
+        assert.strictEqual(tgUtil.pasteLongText(message('<a> 1\n2\n3\n4'), options).truncated,
+            false);
     });
 });
 
@@ -361,7 +396,8 @@ describe('tg/util initHttpServer', function() {
             });
         };
         server.on('listening', function() {
-            var line = tgUtil.pasteLongText('<a> 1\n2\n3\n4',
+            var line = tgUtil.pasteLongText({text: '<a> 1\n2\n3\n4', prefix: '<a> ',
+                content: '1\n2\n3\n4'},
                 {showMedia: true, pasteMaxLines: 3, pasteMaxBytes: 99, httpLocation: '',
                     replaceNewlines: '\n'});
             get('/messages', function(status) {
