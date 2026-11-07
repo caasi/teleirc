@@ -120,7 +120,9 @@ config.ircQueueMax = 60;
 // showMedia. 0 turns it off.
 config.pasteMaxLines = 3;
 
-// The .txt file holds at most this many bytes of the text; the rest is cut.
+// The .txt file holds at most this many bytes; the rest of the text is cut.
+// The bot never deletes a paste file, the same as a media file, and anyone
+// with the link can read it.
 config.pasteMaxBytes = 16384;
 
 // The bot replies with this text, in the Telegram group, to a message that
