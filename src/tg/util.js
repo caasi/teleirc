@@ -224,7 +224,8 @@ exports.serveFile = function(fileId, mimetype, config, tg, callback) {
 // A text of more than config.pasteMaxLines IRC lines floods an IRC channel,
 // also at one line per second. A long line counts as the PRIVMSG blocks that
 // it becomes. Write the text to a file next to the media files and
-// return the one line for IRC that links to it, or null if the text is short.
+// return {line, truncated}: the one line for IRC that links to it, and whether
+// the text was cut. Return null if the text is short.
 // The file holds at most config.pasteMaxBytes bytes, so it starts with a BOM:
 // node-static sends text/plain with no charset.
 exports.pasteLongText = function(text, config) {
@@ -249,16 +250,17 @@ exports.pasteLongText = function(text, config) {
     }
 
     var BOM = '\uFEFF';
-    var MARK = '\n[truncated]\n';
     var bytes = Buffer.from(exports.stripIrcCodes(text));
     var body = bytes.toString();
-    if (Buffer.byteLength(BOM) + bytes.length > config.pasteMaxBytes) {
+    // The file has no mark at the cut: the sender gets told in the warning.
+    var truncated = Buffer.byteLength(BOM) + bytes.length > config.pasteMaxBytes;
+    if (truncated) {
         // Cut before a UTF-8 continuation byte, never inside a character.
-        var end = Math.max(0, config.pasteMaxBytes - Buffer.byteLength(BOM + MARK));
+        var end = Math.max(0, config.pasteMaxBytes - Buffer.byteLength(BOM));
         while (end > 0 && (bytes[end] & 0xC0) === 0x80) {
             end--;
         }
-        body = bytes.subarray(0, end).toString() + MARK;
+        body = bytes.subarray(0, end).toString();
     }
 
     var filesPath = path.join(chatIdsPath, 'files');
@@ -276,8 +278,10 @@ exports.pasteLongText = function(text, config) {
 
     // Keep the first line short, so that the link stays on the same PRIVMSG.
     var first = M.splitBytes(lines[0], M.IRC_LINE_BYTES / 2)[0];
-    return first + ' … (' + ircLines + ' lines) ' +
-        config.httpLocation + '/' + name;
+    return {
+        line: first + ' … (' + ircLines + ' lines) ' + config.httpLocation + '/' + name,
+        truncated: truncated
+    };
 };
 
 exports.initHttpServer = function() {

@@ -56,12 +56,16 @@ var init = function(msgCallback) {
                     var pasted = message.text && !message.cmd &&
                         tgUtil.pasteLongText(message.text, config);
                     if (pasted) {
-                        message.text = pasted;
+                        message.text = pasted.line;
                     }
                     // An edit makes a new paste, but the sender has the warning already.
                     if (pasted && !msg.edit_date) {
                         var warning = config.pasteWarning
                             .replace('%maxLines%', config.pasteMaxLines);
+                        if (pasted.truncated) {
+                            warning += config.pasteCutWarning
+                                .replace('%maxBytes%', config.pasteMaxBytes);
+                        }
                         tg.sendMessage(msg.chat.id, warning, {
                             reply_to_message_id: msg.message_id,
                             allow_sending_without_reply: true

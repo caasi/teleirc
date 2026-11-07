@@ -229,26 +229,32 @@ describe('tg/util pasteLongText', function() {
     var opts = {showMedia: true, pasteMaxLines: 3, pasteMaxBytes: 16384,
         mediaRandomLength: 8, httpLocation: 'https://files.example', replaceNewlines: '\n'};
 
+    // The IRC line of a paste, or null.
+    function paste(text, options) {
+        var result = tgUtil.pasteLongText(text, options);
+        return result && result.line;
+    }
+
     function readPaste(line) {
         var name = line.split('https://files.example/')[1];
         return fs.readFileSync(path.join(home, '.teleirc', 'files', name), 'utf8');
     }
 
     it('keeps a text of at most pasteMaxLines non-empty lines', function() {
-        assert.strictEqual(tgUtil.pasteLongText('<a> 1\n\n2\n3', opts), null);
-        assert.strictEqual(tgUtil.pasteLongText('<a> 1\n2\n3\n4',
+        assert.strictEqual(paste('<a> 1\n\n2\n3', opts), null);
+        assert.strictEqual(paste('<a> 1\n2\n3\n4',
             Object.assign({}, opts, {showMedia: false})), null);
     });
 
     it('links a longer text, saved with a BOM', function() {
-        var line = tgUtil.pasteLongText('<a> 1\n2\n3\n4', opts);
+        var line = paste('<a> 1\n2\n3\n4', opts);
         assert.match(line, /^<a> 1 … \(4 lines\) https:\/\/files\.example\/paste_\w{8}\.txt$/);
         assert.strictEqual(readPaste(line), '\uFEFF<a> 1\n2\n3\n4');
     });
 
     it('counts a long line as the IRC lines that it becomes', function() {
         // '<a> ' and 600 時 are 1804 bytes: 6 IRC lines of at most 350 bytes.
-        var line = tgUtil.pasteLongText('<a> ' + '時'.repeat(600), opts);
+        var line = paste('<a> ' + '時'.repeat(600), opts);
         assert.match(line, /… \(6 lines\) https:/);
         assert.ok(Buffer.byteLength(line) < 400, Buffer.byteLength(line));
     });
@@ -257,15 +263,15 @@ describe('tg/util pasteLongText', function() {
         // Joined with ' … ', three lines of 300 bytes are 900+ bytes: 3 blocks.
         var line300 = 'a'.repeat(300);
         var text = [line300, line300, line300].join('\n');
-        assert.strictEqual(tgUtil.pasteLongText(text, opts), null);
+        assert.strictEqual(paste(text, opts), null);
         var joined = Object.assign({}, opts, {replaceNewlines: ' … ', pasteMaxLines: 2});
-        assert.match(tgUtil.pasteLongText(text, joined), /\(3 lines\)/);
-        assert.strictEqual(tgUtil.pasteLongText('1\n2\n3\n4', joined), null);
+        assert.match(paste(text, joined), /\(3 lines\)/);
+        assert.strictEqual(paste('1\n2\n3\n4', joined), null);
     });
 
     it('does not count the nick prefix as a line', function() {
-        assert.strictEqual(tgUtil.pasteLongText('<a> \n1\n2\n3', opts), null);
-        var line = tgUtil.pasteLongText('<a> \n1\n2\n3\n4', opts);
+        assert.strictEqual(paste('<a> \n1\n2\n3', opts), null);
+        var line = paste('<a> \n1\n2\n3\n4', opts);
         assert.match(line, /^<a> 1 … \(4 lines\) /);
     });
 
@@ -275,19 +281,22 @@ describe('tg/util pasteLongText', function() {
             throw new Error('ENOSPC');
         };
         try {
-            assert.strictEqual(tgUtil.pasteLongText('<a> 1\n2\n3\n4', opts), null);
+            assert.strictEqual(paste('<a> 1\n2\n3\n4', opts), null);
         } finally {
             fs.writeFileSync = write;
         }
     });
 
     it('cuts the file at pasteMaxBytes, between characters', function() {
-        // The BOM (3 bytes) and the mark (13 bytes) leave 10 bytes of the 26
-        // for the text. 時 is 3 bytes, so the cut at 10 falls inside one.
-        var line = tgUtil.pasteLongText('時時時時時時時時\n2\n3\n4',
+        // The BOM (3 bytes) leaves 23 bytes of the 26 for the text. 時 is
+        // 3 bytes, so the cut at 23 falls inside one: 7 are kept.
+        var line = paste('時時時時時時時時\n2\n3\n4',
             Object.assign({}, opts, {pasteMaxBytes: 26}));
-        assert.strictEqual(readPaste(line), '\uFEFF時時時\n[truncated]\n');
+        assert.strictEqual(readPaste(line), '\uFEFF時時時時時時時');
         assert.ok(Buffer.byteLength(readPaste(line)) <= 26);
+        var options = Object.assign({}, opts, {pasteMaxBytes: 26});
+        assert.strictEqual(tgUtil.pasteLongText('時時時時時時時時\n2\n3\n4', options).truncated, true);
+        assert.strictEqual(tgUtil.pasteLongText('1\n2\n3\n4', options).truncated, false);
     });
 });
 
@@ -315,7 +324,7 @@ describe('tg/util initHttpServer', function() {
             get('/messages', function(status) {
                 assert.strictEqual(status, 404);
                 // A file in the folder is still served.
-                get(line.split(' ').pop(), function(fileStatus) {
+                get(line.line.split(' ').pop(), function(fileStatus) {
                     server.close();
                     assert.strictEqual(fileStatus, 200);
                     done();

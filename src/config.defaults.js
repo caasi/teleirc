@@ -121,8 +121,9 @@ config.ircQueueMax = 60;
 // showMedia. 0 turns it off.
 config.pasteMaxLines = 3;
 
-// The .txt file holds at most this many bytes; the rest of the text is cut.
-// Use at least 16: the BOM and the "[truncated]" mark take 16 bytes.
+// The .txt file holds at most this many bytes, with a BOM of 3 bytes; the
+// rest of the text is cut, and the file has no mark at the cut. Use at
+// least 3: the BOM is always in the file.
 // The bot never deletes a paste file, the same as a media file, and anyone
 // with the link can read it.
 config.pasteMaxBytes = 16384;
@@ -131,6 +132,10 @@ config.pasteMaxBytes = 16384;
 // went to IRC as a link. %maxLines% becomes the value of pasteMaxLines.
 config.pasteWarning = 'A message of more than %maxLines% lines goes to IRC only as a ' +
     'link. Please send long text as a paste.';
+
+// The bot adds this to pasteWarning when the text was longer than
+// pasteMaxBytes. %maxBytes% becomes the value of pasteMaxBytes.
+config.pasteCutWarning = ' The text was cut to %maxBytes% bytes.';
 
 // Send message in text, markdown or html
 config.parseMode = '';
