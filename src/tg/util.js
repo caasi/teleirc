@@ -231,6 +231,11 @@ exports.pasteLongText = function(text, config) {
     var lines = text.split('\n').filter(function(line) {
         return /\S/.test(line);
     });
+    // A message that starts with a newline gives "<nick> " as a line of its
+    // own. It is the prefix of the next line, not a line of the text.
+    if (lines.length > 1 && /^<[^>]*> ?$/.test(exports.stripIrcCodes(lines[0]))) {
+        lines.splice(0, 2, lines[0] + lines[1]);
+    }
     var ircLines = lines.reduce(function(sum, line) {
         return sum + M.splitBytes(line, M.IRC_LINE_BYTES).length;
     }, 0);

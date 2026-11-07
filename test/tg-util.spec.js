@@ -253,6 +253,12 @@ describe('tg/util pasteLongText', function() {
         assert.ok(Buffer.byteLength(line) < 400, Buffer.byteLength(line));
     });
 
+    it('does not count the nick prefix as a line', function() {
+        assert.strictEqual(tgUtil.pasteLongText('<a> \n1\n2\n3', opts), null);
+        var line = tgUtil.pasteLongText('<a> \n1\n2\n3\n4', opts);
+        assert.match(line, /^<a> 1 … \(4 lines\) /);
+    });
+
     it('returns null when the file cannot be written', function() {
         var write = fs.writeFileSync;
         fs.writeFileSync = function() {
