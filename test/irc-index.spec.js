@@ -220,8 +220,10 @@ describe('irc/index', function() {
         server.onPrivmsg = function(line) {
             times.push(Date.now());
             assert.ok(line.length - 'PRIVMSG #chan '.length <= 351, line.length);
-            if (times.length === 2) {
-                assert.ok(times[1] - times[0] >= 45, 'gap: ' + (times[1] - times[0]));
+            // 1000 characters are 3 blocks: 350, 350 and 300.
+            if (times.length === 3) {
+                assert.ok(times[1] - times[0] >= 45, 'gap 1: ' + (times[1] - times[0]));
+                assert.ok(times[2] - times[1] >= 45, 'gap 2: ' + (times[2] - times[1]));
                 done();
             }
         };
